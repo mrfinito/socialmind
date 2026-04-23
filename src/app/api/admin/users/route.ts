@@ -21,22 +21,32 @@ export async function GET() {
   const { data: drafts } = await adminClient.from('drafts').select('user_id, created_at')
   const { data: invites } = await adminClient.from('invites').select('*').order('created_at', { ascending: false })
 
-  const profileMap = Object.fromEntries((profiles || []).map((p: Record<string,unknown>) => [p.id, p]))
-  const permMap = Object.fromEntries((permissions || []).map((p: Record<string,unknown>) => [p.user_id, p]))
+  const profileMap: Record<string, unknown> = Object.fromEntries(
+    (profiles || []).map((p: { id: string }) => [p.id, p])
+  )
+  const permMap: Record<string, unknown> = Object.fromEntries(
+    (permissions || []).map((p: { user_id: string }) => [p.user_id, p])
+  )
 
   const now = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
 
-  const projectCounts = (projects || []).reduce((acc: Record<string,number>, p) => {
-    acc[p.user_id] = (acc[p.user_id] || 0) + 1; return acc
-  }, {})
-  const draftCounts = (drafts || []).reduce((acc: Record<string,number>, d) => {
-    acc[d.user_id] = (acc[d.user_id] || 0) + 1; return acc
-  }, {})
-  const monthlyDrafts = (drafts || []).filter(d => new Date(d.created_at) >= monthStart)
-    .reduce((acc: Record<string,number>, d) => {
-      acc[d.user_id] = (acc[d.user_id] || 0) + 1; return acc
-    }, {})
+  const projectCounts: Record<string, number> = {}
+  ;(projects || []).forEach((p: { user_id: string }) => {
+    projectCounts[p.user_id] = (projectCounts[p.user_id] || 0) + 1
+  })
+
+  const draftCounts: Record<string, number> = {}
+  ;(drafts || []).forEach((d: { user_id: string }) => {
+    draftCounts[d.user_id] = (draftCounts[d.user_id] || 0) + 1
+  })
+
+  const monthlyDrafts: Record<string, number> = {}
+  ;(drafts || [])
+    .filter((d: { created_at: string }) => new Date(d.created_at) >= monthStart)
+    .forEach((d: { user_id: string }) => {
+      monthlyDrafts[d.user_id] = (monthlyDrafts[d.user_id] || 0) + 1
+    })
 
   const enriched = (users || []).map(u => ({
     id: u.id,
