@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  socialmind:
+    build: .
+    container_name: socialmind
+    ports:
+      - "3000:3000"
+    environment:
+      # ── Skopiuj z .env.local lub wpisz bezpośrednio ──
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - APP_PASSWORD=${APP_PASSWORD:-socialmind2024}
+      - SESSION_SECRET=${SESSION_SECRET:-change-me-to-random-string}
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Opcjonalnie: Nginx reverse proxy z SSL
+  # nginx:
+  #   image: nginx:alpine
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf
+  #     - ./ssl:/etc/nginx/ssl
+  #   depends_on:
+  #     - socialmind
+  #   restart: unless-stopped

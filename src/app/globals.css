@@ -1,0 +1,75 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { box-sizing: border-box; }
+body { font-family: 'Inter', system-ui, sans-serif; background: #0f1117; color: #e8eaf0; }
+
+@layer components {
+  .btn-primary {
+    @apply bg-indigo-500 hover:bg-indigo-400 active:bg-indigo-600 text-white font-medium px-5 py-2.5 rounded-xl transition-all duration-150 text-sm disabled:opacity-40 disabled:cursor-not-allowed;
+    box-shadow: 0 4px 14px rgba(99,102,241,0.25);
+  }
+  .btn-secondary {
+    @apply text-gray-200 font-medium px-5 py-2.5 rounded-xl transition-all duration-150 text-sm;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.10);
+  }
+  .btn-secondary:hover { background: rgba(255,255,255,0.10); }
+  .btn-ghost {
+    @apply text-gray-400 hover:text-gray-200 px-4 py-2 rounded-lg transition-all duration-150 text-sm;
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,0.05); }
+  .card {
+    @apply rounded-2xl p-6;
+    background: #181c27;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .card-sm {
+    @apply rounded-xl p-4;
+    background: #181c27;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .input {
+    @apply w-full rounded-xl px-3.5 py-2.5 text-sm text-gray-100 placeholder-gray-500 focus:outline-none transition-all;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.10);
+  }
+  .input:focus {
+    border-color: rgba(99,102,241,0.5);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+  }
+  .label {
+    @apply text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 block;
+  }
+  .tag {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium transition-all cursor-pointer select-none;
+  }
+  .tag-inactive {
+    @apply text-gray-400;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.10);
+  }
+  .tag-inactive:hover {
+    border-color: rgba(255,255,255,0.20);
+    color: #d1d5db;
+  }
+  .tag-active {
+    @apply text-indigo-300;
+    background: rgba(99,102,241,0.15);
+    border: 1px solid rgba(99,102,241,0.40);
+  }
+  .sidebar-link {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 text-gray-400 cursor-pointer;
+  }
+  .sidebar-link:hover {
+    color: #e2e8f0;
+    background: rgba(255,255,255,0.05);
+  }
+  .sidebar-link-active {
+    color: #a5b4fc;
+    background: rgba(99,102,241,0.12);
+    border: 1px solid rgba(99,102,241,0.20);
+  }
+}
