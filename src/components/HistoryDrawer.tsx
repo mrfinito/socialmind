@@ -53,7 +53,7 @@ export default function HistoryDrawer<T>({
             <p className="text-xs font-semibold text-gray-400">Historia — {entries.length} zapisanych</p>
             <button onClick={() => setOpen(false)} className="text-gray-600 hover:text-gray-400 text-sm">✕</button>
           </div>
-          <div className="divide-y" style={{divideColor:'rgba(255,255,255,0.04)'}}>
+          <div className="divide-y divide-white/5">
             {entries.map(entry => (
               <div key={entry.id} className="flex items-center gap-3 px-4 py-3 hover:bg-white/2 transition-all group">
                 <span className="text-lg shrink-0">{icon}</span>

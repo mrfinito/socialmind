@@ -31,7 +31,8 @@ async function generateWithDalle(prompt: string, platform: string) {
     quality: 'standard',
     style: 'natural',
   })
-  const url = response.data[0]?.url
+  const data = response.data ?? []
+  const url = data[0]?.url
   if (!url) throw new Error('Brak URL obrazka z DALL-E')
   return { url }
 }

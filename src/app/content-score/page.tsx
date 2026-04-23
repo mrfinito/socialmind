@@ -104,7 +104,7 @@ export default function ContentScorePage() {
               onLoad={e => { setData(e.data); setText('') }}
               onDelete={id => setHistory(prev => prev.filter(e => e.id !== id))}
               formatTitle={e => e.title}
-              formatSubtitle={e => e.subtitle}
+              formatSubtitle={e => e.subtitle || ''}
             />
           </div>
         </div>

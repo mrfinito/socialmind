@@ -1,4 +1,6 @@
 'use client'
+
+interface KeyStatus { set: boolean; label: string; hint: string; url: string; envKey: string }
 import { useState } from 'react'
 import AppShell from '@/components/layout/AppShell'
 import { createClient } from '@/lib/supabase'

@@ -14,6 +14,84 @@ const HOURS = Array.from({length:24},(_,i)=>`${String(i).padStart(2,'0')}:00`)
 function getMonthDays(y:number,m:number) { return new Date(y,m+1,0).getDate() }
 function getFirstDay(y:number,m:number) { return (new Date(y,m,1).getDay()+6)%7 }
 
+
+interface WeekViewProps {
+  weekOffset: number
+  setWeekOffset: (fn: (n: number) => number) => void
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  projectDrafts: any[]
+  now: Date
+  markPublished: (id: string) => void
+  deleteDraft: (id: string) => void
+}
+
+function WeekView({ weekOffset, setWeekOffset, projectDrafts, now, markPublished, deleteDraft }: WeekViewProps) {
+  const getWeekStart = () => {
+    const d = new Date()
+    d.setDate(d.getDate() - d.getDay() + 1 + weekOffset * 7)
+    return d
+  }
+  const weekStart = getWeekStart()
+  const weekEnd = new Date(weekStart)
+  weekEnd.setDate(weekEnd.getDate() + 6)
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <button onClick={() => setWeekOffset(w => w - 1)} className="btn-ghost px-3">← Poprzedni tydzień</button>
+        <h3 className="text-sm font-semibold text-white">
+          {weekStart.toLocaleDateString('pl', {day:'numeric',month:'short'})} — {weekEnd.toLocaleDateString('pl', {day:'numeric',month:'short',year:'numeric'})}
+        </h3>
+        <button onClick={() => setWeekOffset(w => w + 1)} className="btn-ghost px-3">Następny tydzień →</button>
+      </div>
+      <div className="grid grid-cols-7 gap-2">
+        {Array.from({length:7}, (_,i) => {
+          const d = new Date(weekStart)
+          d.setDate(d.getDate() + i)
+          const isToday = d.toDateString() === now.toDateString()
+          const dayDrafts = projectDrafts.filter(draft => {
+            if (!draft.scheduledAt) return false
+            return new Date(draft.scheduledAt).toDateString() === d.toDateString()
+          })
+          return (
+            <div key={i} className="rounded-2xl overflow-hidden"
+              style={{border:`1px solid ${isToday?'rgba(99,102,241,0.4)':'rgba(255,255,255,0.06)'}`,background:isToday?'rgba(99,102,241,0.06)':'#181c27',minHeight:320}}>
+              <div className="px-3 py-2.5 text-center" style={{borderBottom:'1px solid rgba(255,255,255,0.06)'}}>
+                <p className="text-[10px] text-gray-600">{['Pon','Wt','Śr','Czw','Pt','Sob','Nie'][i]}</p>
+                <span className={`text-lg font-bold ${isToday?'text-indigo-400':'text-white'}`}>{d.getDate()}</span>
+              </div>
+              <div className="p-2 space-y-2">
+                {dayDrafts.map(draft => {
+                  const post = draft.content[draft.platforms[0] as keyof typeof draft.content] as {text?:string;generatedImageUrl?:string;editedImageUrl?:string}|undefined
+                  const img = post?.editedImageUrl || post?.generatedImageUrl
+                  return (
+                    <div key={draft.id} className="rounded-xl overflow-hidden"
+                      style={{background:'rgba(99,102,241,0.12)',border:'1px solid rgba(99,102,241,0.25)'}}>
+                      {img && <img src={img} alt="" className="w-full h-20 object-cover"/>}
+                      <div className="p-2">
+                        <p className="text-[10px] text-indigo-200 leading-tight line-clamp-2">{draft.topic}</p>
+                        <div className="flex gap-1 mt-1.5">
+                          <button onClick={() => markPublished(draft.id)} className="text-[9px] text-emerald-400 border border-emerald-500/20 rounded px-1.5 py-0.5">✓</button>
+                          <button onClick={() => deleteDraft(draft.id)} className="text-[9px] text-red-400 border border-red-500/20 rounded px-1.5 py-0.5">✕</button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+                {dayDrafts.length === 0 && (
+                  <div className="h-16 rounded-xl border border-dashed border-white/5 flex items-center justify-center">
+                    <p className="text-[10px] text-gray-700">Przeciągnij post</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function SchedulerPage() {
   const { projectDrafts, scheduleDraft, markPublished, deleteDraft, activeProject } = useStore()
   const now = new Date()
@@ -132,95 +210,17 @@ export default function SchedulerPage() {
                 })}
               </div>
             </div>
-            )}
-
 
             {/* WEEK VIEW */}
             {view === 'week' && (
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <button onClick={()=>setWeekOffset(w=>w-1)} className="btn-ghost px-3">← Poprzedni tydzień</button>
-                  <h3 className="text-sm font-semibold text-white">
-                    {(() => {
-                      const start = new Date(); start.setDate(start.getDate() - start.getDay() + 1 + weekOffset * 7);
-                      const end = new Date(start); end.setDate(end.getDate() + 6);
-                      return `${start.toLocaleDateString('pl',{day:'numeric',month:'short'})} — ${end.toLocaleDateString('pl',{day:'numeric',month:'short',year:'numeric'})}`;
-                    })()}
-                  </h3>
-                  <button onClick={()=>setWeekOffset(w=>w+1)} className="btn-ghost px-3">Następny tydzień →</button>
-                </div>
-                <div className="grid grid-cols-7 gap-2">
-                  {Array.from({length:7},(_,i)=>{
-                    const d = new Date();
-                    d.setDate(d.getDate() - d.getDay() + 1 + i + weekOffset * 7);
-                    const isToday = d.toDateString() === now.toDateString();
-                    const dayDrafts = projectDrafts.filter(draft => {
-                      if (!draft.scheduledAt) return false;
-                      const sd = new Date(draft.scheduledAt);
-                      return sd.toDateString() === d.toDateString();
-                    });
-                    return (
-                      <div key={i} className="rounded-2xl overflow-hidden" style={{border:`1px solid ${isToday?'rgba(99,102,241,0.4)':'rgba(255,255,255,0.06)'}`,background:isToday?'rgba(99,102,241,0.06)':'#181c27',minHeight:320}}>
-                        <div className="px-3 py-2.5 text-center" style={{borderBottom:'1px solid rgba(255,255,255,0.06)'}}>
-                          <p className="text-[10px] text-gray-600">{['Pon','Wt','Śr','Czw','Pt','Sob','Nie'][i]}</p>
-                          <span className={`text-lg font-bold ${isToday?'text-indigo-400':'text-white'}`}>{d.getDate()}</span>
-                        </div>
-                        <div className="p-2 space-y-2">
-                          {dayDrafts.map(draft => {
-                            const plt = PLATFORMS.find(x=>x.id===draft.platforms[0]);
-                            const post = draft.content[draft.platforms[0] as keyof typeof draft.content] as {text?:string;generatedImageUrl?:string;editedImageUrl?:string}|undefined;
-                            const img = post?.editedImageUrl || post?.generatedImageUrl;
-                            return (
-                              <div key={draft.id} className="rounded-xl overflow-hidden cursor-pointer hover:opacity-80 transition-all"
-                                style={{background:'rgba(99,102,241,0.12)',border:'1px solid rgba(99,102,241,0.25)'}}>
-                                {img && (
-                                  <img src={img} alt="" className="w-full h-20 object-cover"/>
-                                )}
-                                <div className="p-2">
-                                  <div className="flex items-center gap-1 mb-1">
-                                    <PlatformIcon platform={draft.platforms[0]} size={14}/>
-                                    <span className="text-[9px] text-gray-500">{draft.scheduledAt ? new Date(draft.scheduledAt).toLocaleTimeString('pl',{hour:'2-digit',minute:'2-digit'}) : ''}</span>
-                                  </div>
-                                  <p className="text-[10px] text-indigo-200 leading-tight line-clamp-2">{draft.topic}</p>
-                                  <div className="flex gap-1 mt-1.5">
-                                    <button onClick={()=>markPublished(draft.id)} className="text-[9px] text-emerald-400 border border-emerald-500/20 rounded px-1.5 py-0.5">✓ Pub</button>
-                                    <button onClick={()=>deleteDraft(draft.id)} className="text-[9px] text-red-400 border border-red-500/20 rounded px-1.5 py-0.5">✕</button>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                          {dayDrafts.length===0 && (
-                            <div className="h-16 rounded-xl border border-dashed border-white/5 flex items-center justify-center">
-                              <p className="text-[10px] text-gray-700">Przeciągnij post</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Selected day detail */}
-            {selectedDay && (
-              <div className="card mt-4">
-                <h3 className="text-sm font-semibold text-white mb-3">{selectedDay} {MONTHS_PL[month]}</h3>
-                {getDayDrafts(selectedDay).length===0
-                  ? <p className="text-xs text-gray-600">Brak zaplanowanych postów — przeciągnij post ze szkiców</p>
-                  : getDayDrafts(selectedDay).map(d=>(
-                    <div key={d.id} className="flex items-center gap-3 py-2.5 border-b border-white/5 last:border-0">
-                      <div className="flex gap-1">{d.platforms.slice(0,2).map(p=><PlatformIcon key={p} platform={p} size={22}/>)}</div>
-                      <div className="flex-1">
-                        <p className="text-xs text-gray-200">{d.topic}</p>
-                        <p className="text-[10px] text-gray-600">{d.scheduledAt ? new Date(d.scheduledAt).toLocaleTimeString('pl',{hour:'2-digit',minute:'2-digit'}) : ''}</p>
-                      </div>
-                      <button onClick={()=>markPublished(d.id)} className="text-[10px] text-emerald-400 border border-emerald-500/20 rounded-lg px-2 py-1">✓ Opublikuj</button>
-                    </div>
-                  ))
-                }
-              </div>
+              <WeekView
+                weekOffset={weekOffset}
+                setWeekOffset={setWeekOffset}
+                projectDrafts={projectDrafts}
+                now={now}
+                markPublished={markPublished}
+                deleteDraft={deleteDraft}
+              />
             )}
           </div>
 

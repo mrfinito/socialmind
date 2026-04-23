@@ -90,7 +90,9 @@ export default function KampaniaPage() {
     let txt = `KAMPANIA: ${data.campaignName}\n${data.campaignTagline}\n${'═'.repeat(60)}\n\n`
     txt += `STRATEGIA\n${data.strategy}\n\nGŁÓWNY PRZEKAZ\n${data.keyMessage}\n\n`
     txt += `HASHTAG KAMPANII: ${data.hashtags?.campaign}\n\n`
-    const weeks = [...new Set((data.posts||[]).map(p=>p.week))].sort()
+    const weekNums: number[] = []
+    ;(data.posts||[]).forEach((p:{week:number}) => { if (!weekNums.includes(p.week)) weekNums.push(p.week) })
+    const weeks = weekNums.sort((a,b)=>a-b)
     weeks.forEach(w => {
       txt += `\n${'─'.repeat(40)}\nTYDZIEŃ ${w}\n${'─'.repeat(40)}\n`
       data.posts.filter(p=>p.week===w).forEach(p => {
@@ -113,8 +115,12 @@ export default function KampaniaPage() {
     a.click()
   }
 
-  const weeks = data ? [...new Set(data.posts.map(p=>p.week))].sort() : []
-  const weekPosts = data ? data.posts.filter(p=>p.week===activeWeek) : []
+  const allWeeks = data ? data.posts.map((p:{week:number})=>p.week) : []
+  const weeksSet = new Set(allWeeks)
+  const weeks: number[] = []
+  weeksSet.forEach(w => weeks.push(w))
+  weeks.sort((a,b)=>a-b)
+  const weekPosts = data?.posts?.filter((p:{week:number})=>p.week===activeWeek) || []
   const maxWeek = weeks.length
 
   return (

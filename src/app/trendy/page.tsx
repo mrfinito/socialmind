@@ -42,7 +42,7 @@ export default function TrendyPage() {
       if (!res.ok) throw new Error(j.error)
       setData(j.data)
       const entry = historySave('trendy', projectId, {
-        title: industry || dna?.industry || 'Trendy',
+        title: dna?.industry || 'Trendy',
         subtitle: new Date().toLocaleDateString('pl'),
         data: j.data,
       })
