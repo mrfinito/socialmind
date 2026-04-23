@@ -227,6 +227,21 @@ export default function AdminPage() {
   const [newInviteUrl, setNewInviteUrl] = useState('')
   const [copied, setCopied] = useState<string|null>(null)
   const [changingPlan, setChangingPlan] = useState<string|null>(null)
+  const [invFilter, setInvFilter] = useState<'all'|'active'|'used'|'expired'>('all')
+
+  async function manageInvite(id: string, action: 'cancel'|'extend'|'delete') {
+    if (action === 'delete') {
+      if (!confirm('Usunąć zaproszenie?')) return
+      await fetch(`/api/admin/invite/${id}`, { method: 'DELETE' })
+      setInvites(prev => prev.filter(i => i.id !== id))
+    } else {
+      await fetch(`/api/admin/invite/${id}`, {
+        method: 'PATCH', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ action })
+      })
+      loadData()
+    }
+  }
 
   useEffect(() => { loadData() }, [])
 
@@ -522,46 +537,101 @@ export default function AdminPage() {
               )}
             </div>
 
+            {/* Filters */}
+            <div className="flex gap-2 mb-3">
+              {(['all','active','used','expired'] as const).map(f => (
+                <button key={f} onClick={() => setInvFilter(f)}
+                  className="text-xs px-3 py-1.5 rounded-xl border transition-all"
+                  style={{
+                    background: invFilter===f ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.03)',
+                    borderColor: invFilter===f ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.08)',
+                    color: invFilter===f ? '#a5b4fc' : '#6b7280',
+                  }}>
+                  {f==='all'?`Wszystkie (${invites.length})`:
+                   f==='active'?`Aktywne (${invites.filter(i=>!i.used_at&&new Date(i.expires_at)>new Date()).length})`:
+                   f==='used'?`Użyte (${invites.filter(i=>!!i.used_at).length})`:
+                   `Wygasłe (${invites.filter(i=>!i.used_at&&new Date(i.expires_at)<=new Date()).length})`}
+                </button>
+              ))}
+            </div>
+
             {/* List */}
             <div className="space-y-2">
               {invites.length===0 && (
                 <div className="card text-center py-8 text-gray-600">Brak wysłanych zaproszeń</div>
               )}
-              {invites.map(inv => {
+              {invites
+                .filter(inv => {
+                  const used = !!inv.used_at
+                  const expired = !used && new Date(inv.expires_at)<=new Date()
+                  const active = !used && !expired
+                  if (invFilter==='active') return active
+                  if (invFilter==='used') return used
+                  if (invFilter==='expired') return expired
+                  return true
+                })
+                .map(inv => {
                 const used = !!inv.used_at
-                const expired = !used && new Date(inv.expires_at)<new Date()
+                const expired = !used && new Date(inv.expires_at)<=new Date()
                 const active = !used && !expired
-                const invUrl = typeof window !== 'undefined' ? `${window.location.origin}/invite/${inv.token}` : ''
+                const invUrl = typeof window !== 'undefined' ? `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/invite/${inv.token}` : ''
                 return (
-                  <div key={inv.id} className="card flex items-center gap-4"
-                    style={{opacity:used||expired?0.55:1}}>
-                    <div className="w-2.5 h-2.5 rounded-full shrink-0"
-                      style={{background:used?'#6b7280':expired?'#f87171':'#34d399'}}/>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <p className="text-sm text-gray-200">{inv.email||'Bez emaila'}</p>
-                        <PlanBadge plan={inv.plan}/>
-                        {inv.note && <span className="text-xs text-gray-600">· {inv.note}</span>}
+                  <div key={inv.id} className="card"
+                    style={{opacity:used?0.6:1}}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-2.5 h-2.5 rounded-full shrink-0 mt-0.5"
+                        style={{background:used?'#6b7280':expired?'#f87171':'#34d399'}}/>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                          <p className="text-sm text-gray-200">{inv.email||'Bez emaila'}</p>
+                          <PlanBadge plan={inv.plan}/>
+                          {inv.note && <span className="text-xs text-gray-600">· {inv.note}</span>}
+                          <span className="text-xs font-semibold ml-1"
+                            style={{color:used?'#6b7280':expired?'#f87171':'#34d399'}}>
+                            {used?'✓ Użyte':expired?'⏰ Wygasłe':'● Aktywne'}
+                          </span>
+                        </div>
+                        <p className="text-[10px] font-mono text-gray-700 truncate max-w-xs">{invUrl}</p>
+                        <p className="text-[10px] text-gray-600 mt-0.5">
+                          {used
+                            ? `Użyte ${new Date(inv.used_at!).toLocaleString('pl',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`
+                            : expired
+                            ? `Wygasło ${new Date(inv.expires_at).toLocaleString('pl',{day:'numeric',month:'short'})}`
+                            : `Wygasa ${new Date(inv.expires_at).toLocaleString('pl',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`
+                          }
+                          {' · '}stworzono {new Date(inv.created_at).toLocaleDateString('pl')}
+                        </p>
                       </div>
-                      <p className="text-[11px] font-mono text-gray-700 truncate">{invUrl}</p>
+                      {/* Actions */}
+                      <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                        {active && (<>
+                          <button onClick={()=>copy(invUrl,inv.id)}
+                            className="text-xs px-2.5 py-1.5 rounded-lg transition-all"
+                            style={{background:'rgba(99,102,241,0.15)',color:'#a5b4fc',border:'1px solid rgba(99,102,241,0.25)'}}>
+                            {copied===inv.id?'✓ Skopiowano':'📋 Kopiuj'}
+                          </button>
+                          <button onClick={()=>manageInvite(inv.id,'cancel')}
+                            className="text-xs px-2.5 py-1.5 rounded-lg transition-all"
+                            style={{background:'rgba(251,191,36,0.1)',color:'#fbbf24',border:'1px solid rgba(251,191,36,0.25)'}}>
+                            ✕ Anuluj
+                          </button>
+                        </>)}
+                        {expired && (
+                          <button onClick={()=>manageInvite(inv.id,'extend')}
+                            className="text-xs px-2.5 py-1.5 rounded-lg transition-all"
+                            style={{background:'rgba(99,102,241,0.1)',color:'#a5b4fc',border:'1px solid rgba(99,102,241,0.2)'}}>
+                            ↻ Przedłuż 7 dni
+                          </button>
+                        )}
+                        {!used && (
+                          <button onClick={()=>manageInvite(inv.id,'delete')}
+                            className="text-xs px-2.5 py-1.5 rounded-lg transition-all"
+                            style={{background:'rgba(239,68,68,0.08)',color:'#f87171',border:'1px solid rgba(239,68,68,0.2)'}}>
+                            🗑 Usuń
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-xs font-semibold"
-                        style={{color:used?'#6b7280':expired?'#f87171':'#34d399'}}>
-                        {used?'Użyte':expired?'Wygasłe':'Aktywne'}
-                      </p>
-                      <p className="text-[10px] text-gray-600">
-                        {used?`użyte ${new Date(inv.used_at!).toLocaleDateString('pl')}`:
-                          `wygasa ${new Date(inv.expires_at).toLocaleDateString('pl')}`}
-                      </p>
-                    </div>
-                    {active && (
-                      <button onClick={()=>copy(invUrl,inv.id)}
-                        className="text-xs px-2.5 py-1.5 rounded-lg shrink-0"
-                        style={{background:'rgba(99,102,241,0.15)',color:'#a5b4fc',border:'1px solid rgba(99,102,241,0.25)'}}>
-                        {copied===inv.id?'✓':'Kopiuj link'}
-                      </button>
-                    )}
                   </div>
                 )
               })}

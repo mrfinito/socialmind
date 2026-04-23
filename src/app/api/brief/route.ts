@@ -17,6 +17,6 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  const url = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/brief/${data.token}`
+  const url = `${(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/+$/, '')}/brief/${data.token}`
   return NextResponse.json({ ok: true, brief: data, url })
 }
