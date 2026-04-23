@@ -21,8 +21,8 @@ export async function GET() {
   const { data: drafts } = await adminClient.from('drafts').select('user_id, created_at')
   const { data: invites } = await adminClient.from('invites').select('*').order('created_at', { ascending: false })
 
-  const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
-  const permMap = Object.fromEntries((permissions || []).map(p => [p.user_id, p]))
+  const profileMap = Object.fromEntries((profiles || []).map((p: Record<string,unknown>) => [p.id, p]))
+  const permMap = Object.fromEntries((permissions || []).map((p: Record<string,unknown>) => [p.user_id, p]))
 
   const now = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
