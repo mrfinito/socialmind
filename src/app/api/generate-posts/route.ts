@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { checkGenerationLimit } from '@/lib/checkLimits'
 import Anthropic from '@anthropic-ai/sdk'
 import type { Platform } from '@/lib/types'
 
@@ -34,6 +35,17 @@ const PLATFORM_SPECS: Record<Platform, { chars: number; format: string; dims: st
 export async function POST(req: NextRequest) {
 
   try {
+  // Check generation limit
+  const limitCheck = await checkGenerationLimit()
+  if (!limitCheck.allowed) {
+    return NextResponse.json({
+      error: limitCheck.reason || 'Przekroczono limit generowania',
+      limit_exceeded: true,
+      used: limitCheck.used,
+      limit: limitCheck.limit,
+    }, { status: 429 })
+  }
+
     const { masterPrompt, platforms, topic, goals, tones } = await req.json() as {
       masterPrompt: string
       platforms: Platform[]

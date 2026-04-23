@@ -50,6 +50,10 @@ export function useStore() {
       const { data: materials } = await supabase
         .from('materials').select('id,name,type,size,project_id,created_at').order('created_at', { ascending: false })
 
+      // Load user permissions/limits
+      const { data: userPerms } = await supabase
+        .from('user_permissions').select('max_projects,max_posts_per_month').eq('id', user.id).single()
+
       const mappedProjects: Project[] = (projects || []).map(p => ({
         id: p.id, name: p.name, client: p.client,
         emoji: p.emoji || '🏢', color: p.color || '#6366f1',

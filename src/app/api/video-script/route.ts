@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { checkGenerationLimit } from '@/lib/checkLimits'
 import Anthropic from '@anthropic-ai/sdk'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -22,6 +23,17 @@ function robustParse(raw: string) {
 
 export async function POST(req: NextRequest) {
   try {
+  // Check generation limit
+  const limitCheck = await checkGenerationLimit()
+  if (!limitCheck.allowed) {
+    return NextResponse.json({
+      error: limitCheck.reason || 'Przekroczono limit generowania',
+      limit_exceeded: true,
+      used: limitCheck.used,
+      limit: limitCheck.limit,
+    }, { status: 429 })
+  }
+
     const { topic, platform, duration, style, masterPrompt, brandName } = await req.json()
 
     if (!topic?.trim()) throw new Error('Brak tematu wideo')
