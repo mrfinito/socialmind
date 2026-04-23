@@ -57,7 +57,7 @@ Odpowiedz TYLKO czystym JSON bez zadnego tekstu przed lub po:
 Wygeneruj ${sceneCount} scen. Bądź konkretny, podawaj realne opisy wizualne i wskazówki montażu.`
 
     const response = await client.messages.create({
-      model: 'claude-opus-4-5',
+      model: 'claude-sonnet-4-6',
       max_tokens: 3000,
       messages: [{ role: 'user', content: prompt }]
     })

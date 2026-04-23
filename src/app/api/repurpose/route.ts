@@ -102,7 +102,7 @@ Odpowiedz TYLKO czystym JSON:
 }`
 
     const response = await client.messages.create({
-      model: 'claude-opus-4-5',
+      model: 'claude-sonnet-4-6',
       max_tokens: 3000,
       messages: [{ role: 'user', content: prompt }]
     })

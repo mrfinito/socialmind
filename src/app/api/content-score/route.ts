@@ -58,7 +58,7 @@ Odpowiedz TYLKO czystym JSON:
 {"totalScore":${Math.floor(Math.random()*20+60)},"benchmark":${benchmark},"categories":[{"name":"Hook","score":0,"max":15,"icon":"🎣","feedback":"konkretna uwaga co poprawic lub co dziala"},{"name":"Czytelnosc","score":0,"max":12,"icon":"👁","feedback":"konkretna uwaga"},{"name":"CTA","score":0,"max":12,"icon":"👆","feedback":"konkretna uwaga"},{"name":"Dlugosc","score":0,"max":10,"icon":"📏","feedback":"konkretna uwaga"},{"name":"Hashtagi","score":0,"max":10,"icon":"#️⃣","feedback":"konkretna uwaga"},{"name":"Brand DNA","score":0,"max":15,"icon":"🧬","feedback":"konkretna uwaga"},{"name":"Wiralnosc","score":0,"max":13,"icon":"🔥","feedback":"konkretna uwaga"},{"name":"Emocje","score":0,"max":13,"icon":"❤️","feedback":"konkretna uwaga"}],"topSuggestion":"najwazniejsza jedna zmiana ktora najbardziej podniesie skutecznosc","improvedVersion":"poprawiona wersja posta z zastosowanymi sugestiami","verdict":"swietny|dobry|sredni|slaby"}`
 
     const response = await client.messages.create({
-      model: 'claude-opus-4-5',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 1200,
       messages: [{ role: 'user', content: prompt }]
     })

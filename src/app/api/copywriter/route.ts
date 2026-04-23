@@ -43,7 +43,7 @@ ZASADY:
 - Jezyk: polski, chyba ze user pisze po angielsku`
 
     const response = await client.messages.create({
-      model: 'claude-opus-4-5',
+      model: 'claude-sonnet-4-6',
       max_tokens: 1000,
       system: systemPrompt,
       messages: messages.map((m: {role: string; content: string}) => ({
