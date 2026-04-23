@@ -12,7 +12,7 @@ import type { BrandDNA, GeneratedContent, Platform } from '@/lib/types'
 const STEPS = ['Marka', 'Brand DNA', 'Platformy', 'Generuj', 'Eksport']
 
 export default function GenerujPage() {
-  const { state, saveDNA, savePlatforms, savePost } = useStore()
+  const { state, dna: storeDna, selectedPlatforms: storePlatforms, saveDNA, savePlatforms, savePost, activeProject } = useStore()
   const [step, setStep] = useState(0)
   const [dna, setDna] = useState<BrandDNA | null>(null)
   const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>(['facebook', 'instagram'])
@@ -20,12 +20,19 @@ export default function GenerujPage() {
   const [goals, setGoals] = useState<string[]>(['Świadomość marki'])
   const [tones, setTones] = useState<string[]>(['profesjonalny'])
   const [content, setContent] = useState<GeneratedContent | null>(null)
+  const [localDnaLoaded, setLocalDnaLoaded] = useState(false)
 
-  // Load from store on mount
+  // Load Brand DNA and platforms from active project on mount
   useEffect(() => {
-    if (dna) { setDna(dna); setStep(2) }
-    if ((selectedPlatforms || []).length) setSelectedPlatforms(selectedPlatforms || [])
-  }, [dna, selectedPlatforms || []])
+    if (storeDna && !localDnaLoaded) {
+      setDna(storeDna)
+      setLocalDnaLoaded(true)
+      setStep(2) // skip to platforms step
+    }
+    if (storePlatforms?.length) {
+      setSelectedPlatforms(storePlatforms)
+    }
+  }, [storeDna, storePlatforms])
 
   function handleDNA(d: BrandDNA) {
     setDna(d)
