@@ -41,7 +41,7 @@ const DEFAULT_BRANDING: BrandingOptions = {
 
 function PostCard({
   platform, post, dna, onGenerateImage, generatingImage, imageProvider,
-  onEditImage,
+  onEditImage, onReviseImage, onSwitchIteration,
 }: {
   platform: typeof PLATFORMS[0]
   post: GeneratedPost
@@ -50,9 +50,13 @@ function PostCard({
   generatingImage: boolean
   imageProvider: ImageProvider
   onEditImage: () => void
+  onReviseImage: (instruction: string) => void
+  onSwitchIteration: (idx: number) => void
 }) {
   const [copied, setCopied] = useState(false)
   const [copiedPrompt, setCopiedPrompt] = useState(false)
+  const [showReviseModal, setShowReviseModal] = useState(false)
+  const [revisionText, setRevisionText] = useState('')
 
   function copy(text: string, setCb: (v: boolean) => void) {
     navigator.clipboard.writeText(text)
@@ -77,29 +81,123 @@ function PostCard({
       <div>
         <label className="label">Grafika</label>
         {displayImage ? (
-          <div className="relative rounded-xl overflow-hidden border border-white/6">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={displayImage} alt="Generated" className="w-full object-cover max-h-72" />
-            {post.editedImageUrl && (
-              <div className="absolute top-2 left-2 bg-indigo-500/100 text-white text-[10px] px-2 py-1 rounded-lg font-medium">
-                Z brandingiem
+          <div>
+            <div className="relative rounded-xl overflow-hidden border border-white/6">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={displayImage} alt="Generated" className="w-full object-cover max-h-72" />
+              {post.editedImageUrl && (
+                <div className="absolute top-2 left-2 bg-indigo-500/100 text-white text-[10px] px-2 py-1 rounded-lg font-medium">
+                  Z brandingiem
+                </div>
+              )}
+              {!post.editedImageUrl && (
+                <div className="absolute top-2 left-2 bg-white/8/90 text-gray-500 text-[10px] px-2 py-1 rounded-lg border border-white/10">
+                  {providerLabel}
+                  {post.imageIterations && post.imageIterations.length > 1 && (
+                    <span className="ml-1.5 font-semibold text-indigo-400">
+                      v{(post.activeIterationIdx ?? post.imageIterations.length - 1) + 1}/{post.imageIterations.length}
+                    </span>
+                  )}
+                </div>
+              )}
+              <div className="absolute top-2 right-2 flex gap-1.5">
+                <button onClick={onEditImage}
+                  className="bg-white/8/90 text-gray-300 text-xs px-2.5 py-1 rounded-lg border border-white/10 hover:bg-white/8 transition-all">
+                  ✏️ Edytuj
+                </button>
+                <a href={displayImage} target="_blank" rel="noopener noreferrer"
+                  className="bg-white/8/90 text-gray-300 text-xs px-2.5 py-1 rounded-lg border border-white/10 hover:bg-white/8 transition-all">
+                  ↗
+                </a>
               </div>
-            )}
-            {!post.editedImageUrl && (
-              <div className="absolute top-2 left-2 bg-white/8/90 text-gray-500 text-[10px] px-2 py-1 rounded-lg border border-white/10">
-                {providerLabel}
-              </div>
-            )}
-            <div className="absolute top-2 right-2 flex gap-1.5">
-              <button onClick={onEditImage}
-                className="bg-white/8/90 text-gray-300 text-xs px-2.5 py-1 rounded-lg border border-white/10 hover:bg-white/8 transition-all">
-                ✏️ Edytuj
-              </button>
-              <a href={displayImage} target="_blank" rel="noopener noreferrer"
-                className="bg-white/8/90 text-gray-300 text-xs px-2.5 py-1 rounded-lg border border-white/10 hover:bg-white/8 transition-all">
-                ↗
-              </a>
             </div>
+
+            {/* Action buttons */}
+            <div className="flex gap-2 mt-2">
+              <button onClick={() => setShowReviseModal(true)} disabled={generatingImage}
+                className="flex-1 text-xs py-2 px-3 rounded-lg border transition-all disabled:opacity-50"
+                style={{ background: 'rgba(99,102,241,0.12)', borderColor: 'rgba(99,102,241,0.3)', color: '#a5b4fc' }}>
+                ✨ Popraw grafikę
+              </button>
+              <button onClick={onGenerateImage} disabled={generatingImage}
+                className="flex-1 text-xs py-2 px-3 rounded-lg border border-white/10 bg-white/5 text-gray-300 hover:bg-white/10 transition-all disabled:opacity-50">
+                {generatingImage ? <><Spinner /> Generuje...</> : '🔄 Wygeneruj ponownie'}
+              </button>
+            </div>
+
+            {/* Iteration thumbnails */}
+            {post.imageIterations && post.imageIterations.length > 1 && (
+              <div className="mt-3">
+                <p className="text-[10px] text-gray-500 mb-2 uppercase tracking-wider">Wersje ({post.imageIterations.length})</p>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {post.imageIterations.map((it, idx) => {
+                    const isActive = (post.activeIterationIdx ?? post.imageIterations!.length - 1) === idx
+                    return (
+                      <button key={idx} onClick={() => onSwitchIteration(idx)}
+                        className="relative shrink-0 rounded-lg overflow-hidden transition-all"
+                        style={{
+                          border: isActive ? '2px solid #6366f1' : '2px solid rgba(255,255,255,0.08)',
+                          opacity: isActive ? 1 : 0.6,
+                        }}
+                        title={it.revisionNote || 'Oryginał'}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={it.url} alt={`v${idx + 1}`} className="w-16 h-16 object-cover" />
+                        <span className="absolute bottom-0 left-0 right-0 text-[9px] font-semibold text-white px-1 py-0.5 text-center"
+                          style={{ background: 'rgba(0,0,0,0.6)' }}>
+                          v{idx + 1}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Revise modal */}
+            {showReviseModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/70" onClick={() => setShowReviseModal(false)}>
+                <div className="rounded-2xl max-w-lg w-full p-6"
+                  style={{ background: '#0f1423', border: '1px solid rgba(255,255,255,0.1)' }}
+                  onClick={e => e.stopPropagation()}>
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <p className="text-xs text-indigo-400 font-medium mb-1">✨ Popraw grafikę</p>
+                      <h3 className="text-lg font-semibold text-white">Co chcesz zmienić?</h3>
+                    </div>
+                    <button onClick={() => setShowReviseModal(false)} className="text-gray-400 hover:text-white text-2xl leading-none">×</button>
+                  </div>
+                  <p className="text-xs text-gray-500 mb-3">
+                    Napisz co chcesz zmienić. AI przerobi prompt zachowując główny koncept.
+                    Np: &quot;dodaj kota w tle&quot;, &quot;zmień tło na niebieskie&quot;, &quot;więcej ciepłego światła&quot;, &quot;uprość kompozycję&quot;.
+                  </p>
+                  <textarea
+                    value={revisionText}
+                    onChange={e => setRevisionText(e.target.value)}
+                    placeholder="np. zmień tło na pastelowy róż, dodaj więcej kwiatów"
+                    rows={4}
+                    className="w-full px-3 py-2.5 rounded-lg text-sm bg-white/5 border border-white/10 text-white focus:border-indigo-500 outline-none resize-none"
+                    autoFocus
+                  />
+                  <div className="flex gap-2 mt-4">
+                    <button onClick={() => setShowReviseModal(false)}
+                      className="px-4 py-2 rounded-lg text-sm text-gray-400 bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
+                      Anuluj
+                    </button>
+                    <button onClick={() => {
+                        if (!revisionText.trim()) return
+                        onReviseImage(revisionText.trim())
+                        setShowReviseModal(false)
+                        setRevisionText('')
+                      }}
+                      disabled={!revisionText.trim()}
+                      className="flex-1 px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-30 transition-all"
+                      style={{ background: '#6366f1', color: 'white' }}>
+                      ✨ Wygeneruj nową wersję
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="border-2 border-dashed border-white/10 rounded-xl p-5 text-center">
@@ -195,7 +293,7 @@ export default function StepGenerate({ dna, platforms, topic, goals, tones, onCo
     }
   }
 
-  async function generateImage(platform: Platform) {
+  async function generateImage(platform: Platform, revision?: string) {
     if (!content) return
     const post = content[platform] as GeneratedPost | undefined
     if (!post) return
@@ -205,16 +303,56 @@ export default function StepGenerate({ dna, platforms, topic, goals, tones, onCo
       const res = await fetch('/api/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: enhancedPrompt, platform, provider: imageProvider }),
+        body: JSON.stringify({ prompt: enhancedPrompt, platform, provider: imageProvider, revision }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      setContent(prev => prev ? { ...prev, [platform]: { ...prev[platform], generatedImageUrl: data.url } } : prev)
+
+      const newIteration = {
+        url: data.url as string,
+        prompt: (data.finalPrompt || enhancedPrompt) as string,
+        revisionNote: revision,
+        createdAt: new Date().toISOString(),
+      }
+
+      setContent(prev => {
+        if (!prev) return prev
+        const currentPost = prev[platform] as GeneratedPost | undefined
+        if (!currentPost) return prev
+        const iterations = [...(currentPost.imageIterations || []), newIteration]
+        return {
+          ...prev,
+          [platform]: {
+            ...currentPost,
+            generatedImageUrl: data.url,
+            editedImageUrl: undefined, // reset edits when new image generated
+            imageIterations: iterations,
+            activeIterationIdx: iterations.length - 1,
+          }
+        }
+      })
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Blad generowania obrazka')
     } finally {
       setGeneratingImages(p => ({ ...p, [platform]: false }))
     }
+  }
+
+  function switchIteration(platform: Platform, idx: number) {
+    setContent(prev => {
+      if (!prev) return prev
+      const post = prev[platform] as GeneratedPost | undefined
+      if (!post?.imageIterations?.[idx]) return prev
+      return {
+        ...prev,
+        [platform]: {
+          ...post,
+          generatedImageUrl: post.imageIterations[idx].url,
+          editedImageUrl: undefined,
+          activeIterationIdx: idx,
+        }
+      }
+    })
   }
 
   function handleEditorSave(platform: Platform, dataUrl: string) {
@@ -366,6 +504,8 @@ export default function StepGenerate({ dna, platforms, topic, goals, tones, onCo
             generatingImage={!!generatingImages[p.id]}
             imageProvider={imageProvider}
             onEditImage={() => setEditingPlatform(p.id)}
+            onReviseImage={(instruction) => generateImage(p.id, instruction)}
+            onSwitchIteration={(idx) => switchIteration(p.id, idx)}
           />
         )
       })}

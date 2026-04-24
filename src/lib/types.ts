@@ -63,11 +63,20 @@ export interface Project {
   isActive?: boolean
 }
 
+export interface ImageIteration {
+  url: string
+  prompt: string
+  revisionNote?: string
+  createdAt: string
+}
+
 export interface GeneratedPost {
   text: string
   imagePrompt: string
   generatedImageUrl?: string
   editedImageUrl?: string
+  imageIterations?: ImageIteration[]
+  activeIterationIdx?: number
 }
 
 export interface GeneratedContent {
