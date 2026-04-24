@@ -15,6 +15,8 @@ export default function Sidebar() {
       label: 'Główne',
       items: [
         { href: '/',           icon: '⊞', label: 'Pulpit' },
+        { href: '/strategia', icon: '🧭', label: 'Strategia', show: true },
+        { href: '/rtm',      icon: '⚡', label: 'RTM Generator', show: true },
         perms.can_generate_posts && { href: '/generuj',    icon: '✦', label: 'Generuj posty' },
         { href: '/biblioteka', icon: '📚', label: 'Biblioteka' },
         { href: '/scheduler',  icon: '📅', label: 'Scheduler' },
