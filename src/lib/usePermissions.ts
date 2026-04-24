@@ -21,48 +21,57 @@ const DEFAULT: Permissions = {
 export function usePermissions() {
   const [perms, setPerms] = useState<Permissions>(DEFAULT)
   const [loaded, setLoaded] = useState(false)
-  const supabase = createClient()
 
   useEffect(() => {
-    async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setLoaded(true); return }
-
-      // Check if admin — admins get all permissions
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('is_admin, plan')
-        .eq('id', user.id)
-        .single()
-
-      if (profile?.is_admin) { setLoaded(true); return }
-
-      // Load custom permissions
-      const { data: p } = await supabase
-        .from('user_permissions')
-        .select('*')
-        .eq('user_id', user.id)
-        .single()
-
-      if (p) {
-        setPerms({
-          can_generate_posts: p.can_generate_posts ?? true,
-          can_kampania: p.can_kampania ?? true,
-          can_persona: p.can_persona ?? true,
-          can_listening: p.can_listening ?? false,
-          can_competitor: p.can_competitor ?? true,
-          can_repurposing: p.can_repurposing ?? true,
-          can_ab_testy: p.can_ab_testy ?? true,
-          can_wideo: p.can_wideo ?? true,
-          can_copywriter: p.can_copywriter ?? true,
-          can_content_score: p.can_content_score ?? true,
-          can_trendy: p.can_trendy ?? true,
-          can_raport: p.can_raport ?? true,
-          max_projects: p.max_projects ?? 3,
-          max_posts_per_month: p.max_posts_per_month ?? 50,
-        })
-      }
+    // Guard: don't run if env vars missing
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       setLoaded(true)
+      return
+    }
+
+    async function load() {
+      try {
+        const supabase = createClient()
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+        if (userError || !user) { setLoaded(true); return }
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_admin, plan')
+          .eq('id', user.id)
+          .single()
+
+        if (profile?.is_admin) { setLoaded(true); return }
+
+        const { data: p } = await supabase
+          .from('user_permissions')
+          .select('*')
+          .eq('user_id', user.id)
+          .single()
+
+        if (p) {
+          setPerms({
+            can_generate_posts: p.can_generate_posts ?? true,
+            can_kampania: p.can_kampania ?? true,
+            can_persona: p.can_persona ?? true,
+            can_listening: p.can_listening ?? false,
+            can_competitor: p.can_competitor ?? true,
+            can_repurposing: p.can_repurposing ?? true,
+            can_ab_testy: p.can_ab_testy ?? true,
+            can_wideo: p.can_wideo ?? true,
+            can_copywriter: p.can_copywriter ?? true,
+            can_content_score: p.can_content_score ?? true,
+            can_trendy: p.can_trendy ?? true,
+            can_raport: p.can_raport ?? true,
+            max_projects: p.max_projects ?? 3,
+            max_posts_per_month: p.max_posts_per_month ?? 50,
+          })
+        }
+      } catch (e) {
+        console.error('usePermissions error:', e)
+      } finally {
+        setLoaded(true)
+      }
     }
     load()
   }, [])
