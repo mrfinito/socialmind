@@ -1,127 +1,65 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { checkGenerationLimit } from '@/lib/checkLimits'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-function robustParse(raw: string) {
-  let clean = raw.replace(/```json\n?|```\n?/g, '').trim()
-  try { return JSON.parse(clean) } catch {}
-  const s = clean.indexOf('{'), e = clean.lastIndexOf('}')
-  if (s !== -1 && e !== -1) {
-    clean = clean.slice(s, e + 1)
-    try { return JSON.parse(clean) } catch {}
-    clean = clean.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/,(\s*[}\]])/g, '$1')
-    try { return JSON.parse(clean) } catch {}
-  }
-  throw new Error('Nie mozna przetworzyc odpowiedzi')
-}
+export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
-  const limitCheck = await checkGenerationLimit()
-  if (!limitCheck.allowed) {
-    return NextResponse.json({ error: limitCheck.reason, limit_exceeded: true }, { status: 429 })
-  }
-
   try {
     const { dna, industry, platforms, country } = await req.json()
     const today = new Date().toLocaleDateString('pl', { weekday:'long', year:'numeric', month:'long', day:'numeric' })
     const brand = (dna?.brandName || 'Marka').replace(/['"]/g, '')
     const ind = (industry || dna?.industry || 'ogolna').replace(/['"]/g, '')
     const tone = (dna?.tone || 'profesjonalny').replace(/['"]/g, '')
-    const persona = (dna?.persona || '').replace(/['"]/g, '').slice(0, 150)
-    const usp = (dna?.usp || '').replace(/['"]/g, '').slice(0, 150)
+    const persona = (dna?.persona || '').replace(/['"]/g, '').slice(0, 100)
 
-    const prompt = `Jestes ekspertem od Real Time Marketingu z 15-letnim doswiadczeniem w polskim rynku reklamowym.
+    const prompt = `Ekspert RTM. Dzis: ${today}. Marka: ${brand}, branza: ${ind}, ton: ${tone}, persona: ${persona}, kraj: ${country||'Polska'}, platformy: ${(platforms||['facebook','instagram']).join(', ')}.
 
-Dzisiaj jest: ${today}
-Marka: ${brand}
-Branza: ${ind}
-Ton komunikacji: ${tone}
-Persona klienta: ${persona}
-USP marki: ${usp}
-Platformy: ${(platforms||['facebook','instagram']).join(', ')}
-Kraj: ${country || 'Polska'}
+Znajdz 4 okazje RTM i wygeneruj posty. Tylko czysty JSON:
+{"date":"${today}","opportunities":[{"id":"o1","title":"nazwa trendu/swieta/newsa","category":"sport|kultura|technologia|swieto|trend|news|meme","relevance":"wysokie","why":"dlaczego pasuje do ${brand}","risk":"ryzyko lub brak","urgency":"dzisiaj|ten tydzien","posts":[{"platform":"facebook","angle":"koncept podpiecia","text":"pelny tekst posta min 100 slow w tonie ${tone}","hook":"pierwsze zdanie","hashtags":["#tag1","#tag2","#tag3"],"imageIdea":"pomysl na grafike"},{"platform":"instagram","angle":"koncept dla IG","text":"caption z emoji","hook":"hook+emoji","hashtags":["#tag1","#tag2","#tag3","#tag4"],"imageIdea":"pomysl na reel lub grafike"}]},{"id":"o2","title":"nazwa 2","category":"swieto","relevance":"srednie","why":"dlaczego pasuje","risk":"brak","urgency":"dzisiaj","posts":[{"platform":"facebook","angle":"koncept","text":"tekst posta","hook":"hook","hashtags":["#tag"],"imageIdea":"pomysl"},{"platform":"instagram","angle":"koncept","text":"caption","hook":"hook","hashtags":["#tag"],"imageIdea":"pomysl"}]},{"id":"o3","title":"nazwa 3","category":"trend","relevance":"srednie","why":"dlaczego","risk":"brak","urgency":"ten tydzien","posts":[{"platform":"facebook","angle":"koncept","text":"tekst","hook":"hook","hashtags":["#tag"],"imageIdea":"pomysl"},{"platform":"instagram","angle":"koncept","text":"caption","hook":"hook","hashtags":["#tag"],"imageIdea":"pomysl"}]},{"id":"o4","title":"nazwa 4","category":"kultura","relevance":"niskie","why":"dlaczego","risk":"brak","urgency":"ten tydzien","posts":[{"platform":"facebook","angle":"koncept","text":"tekst","hook":"hook","hashtags":["#tag"],"imageIdea":"pomysl"}]}],"todayCalendar":[{"name":"swieto lub rocznica","type":"swieto|rocznica|dzien_tematyczny","potential":"wysoki|sredni","idea":"pomysl dla ${brand}"},{"name":"swieto 2","type":"dzien_tematyczny","potential":"sredni","idea":"pomysl"}],"weeklyTrends":[{"trend":"trend tygodnia","platform":"instagram","relevance":"jak ${brand} moze sie podpiac"},{"trend":"trend 2","platform":"tiktok","relevance":"jak sie podpiac"}],"avoidTopics":["temat do unikniecia z powodem","temat 2"],"rtmTips":["wskazowka RTM dla ${brand} na dzis","wskazowka 2","wskazowka 3"]}`
 
-TWOJE ZADANIE:
-1. Na podstawie swojej wiedzy o aktualnych wydarzeniach, trendach i swietach w Polsce i na swiecie (na dzien ${today}) zidentyfikuj 4-5 konkretnych okazji RTM
-2. Dla kazdej okazji oceń dopasowanie do marki ${brand} i wygeneruj gotowe, profesjonalne posty
-3. Pamietaj o specyfice polskiego rynku, kulturze i aktualnych dyskusjach spolecznych
-
-ZASADY RTM:
-- Post musi byc autentyczny — marka nie moze sie na sile podpinac pod temat
-- Unikaj tematow politycznych, tragicznych wypadkow, chorob
-- Szukaj pozytywnych, zabawnych lub inspirujacych polaczen
-- Hook musi zatrzymac scrollowanie w ciagu 2 sekund
-- Hashtagi musza byc aktualne i popularne
-
-Odpowiedz TYLKO czystym JSON bez zadnego tekstu przed lub po:
-
-{
-  "date": "${today}",
-  "opportunities": [
-    {
-      "id": "opp1",
-      "title": "konkretna nazwa wydarzenia/trendu/swieta",
-      "category": "sport|kultura|technologia|swieto|trend|news|meme|biznes",
-      "relevance": "wysokie|srednie|niskie",
-      "why": "konkretne wyjasnienie dlaczego ten temat pasuje do marki ${brand} i jej grupy docelowej",
-      "risk": "ewentualne ryzyko wizerunkowe lub brak",
-      "urgency": "dzisiaj|ten tydzien|ten miesiac",
-      "posts": [
-        {
-          "platform": "facebook",
-          "angle": "kreatywny koncept podpiecia marki pod temat — co jest lacznikiem miedzy tematem a marka",
-          "text": "pelny, gotowy tekst posta napisany w tonie ${tone}. Minimum 150 slow. Naturalny, angażujacy, z CTA",
-          "hook": "pierwsze 1-2 zdania ktore zatrzymuja scrollowanie",
-          "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3", "#hashtag4", "#hashtag5"],
-          "imageIdea": "szczegolowy opis grafiki lub wideo ktore pasuje do posta"
-        },
-        {
-          "platform": "instagram",
-          "angle": "koncept dla Instagram — bardziej wizualny i emocjonalny",
-          "text": "caption dla Instagram z emoji, storytellingiem, do 2200 znakow",
-          "hook": "pierwsze zdanie + emoji",
-          "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3", "#hashtag4", "#hashtag5", "#hashtag6", "#hashtag7"],
-          "imageIdea": "pomysl na grafike lub reel"
-        }
-      ]
-    }
-  ],
-  "todayCalendar": [
-    {
-      "name": "nazwa swieta/rocznicy/dnia tematycznego",
-      "type": "swieto_panstwowe|dzien_tematyczny|rocznica|wydarzenie",
-      "potential": "wysoki|sredni|niski",
-      "idea": "konkretny pomysl jak marka ${brand} moze to wykorzystac"
-    }
-  ],
-  "weeklyTrends": [
-    {
-      "trend": "nazwa trendu lub hashtagu ktory trenduje",
-      "platform": "na jakiej platformie trenduje",
-      "relevance": "jak konkretnie branza ${ind} moze sie pod to podpiac"
-    }
-  ],
-  "avoidTopics": [
-    "konkretny temat do unikniecia dzis z krotkim wyjasnieniem dlaczego"
-  ],
-  "rtmTips": [
-    "konkretna wskazowka RTM na dzis dostosowana do marki ${brand}"
-  ]
-}`
-
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 4000,
+    const stream = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 3000,
+      stream: true,
       messages: [{ role: 'user', content: prompt }]
     })
 
-    const raw = response.content.map((b: {type:string;text?:string}) => b.type==='text'?b.text:'').join('')
-    const parsed = robustParse(raw)
-    return NextResponse.json({ ok: true, data: parsed })
+    const encoder = new TextEncoder()
+    const readable = new ReadableStream({
+      async start(controller) {
+        let fullText = ''
+        try {
+          for await (const event of stream) {
+            if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+              fullText += event.delta.text
+            }
+          }
+          // Parse and send complete response
+          let clean = fullText.replace(/```json\n?|```\n?/g, '').trim()
+          const s = clean.indexOf('{'), e = clean.lastIndexOf('}')
+          if (s !== -1 && e !== -1) clean = clean.slice(s, e + 1)
+          
+          try {
+            const parsed = JSON.parse(clean)
+            controller.enqueue(encoder.encode(JSON.stringify({ ok: true, data: parsed })))
+          } catch {
+            controller.enqueue(encoder.encode(JSON.stringify({ error: 'Blad parsowania odpowiedzi AI' })))
+          }
+        } catch(err) {
+          controller.enqueue(encoder.encode(JSON.stringify({ error: err instanceof Error ? err.message : 'Blad' })))
+        }
+        controller.close()
+      }
+    })
+
+    return new Response(readable, {
+      headers: { 'Content-Type': 'application/json', 'Transfer-Encoding': 'chunked' }
+    })
   } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: err instanceof Error ? err.message : 'Blad RTM' }, { status: 500 })
+    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : 'Blad RTM' }), {
+      status: 500, headers: { 'Content-Type': 'application/json' }
+    })
   }
 }

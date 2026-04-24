@@ -3,6 +3,8 @@ import Anthropic from '@anthropic-ai/sdk'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+export const maxDuration = 60
+
 function robustParse(raw: string) {
   let clean = raw.replace(/```json\n?|```\n?/g, '').trim()
   try { return JSON.parse(clean) } catch {}
