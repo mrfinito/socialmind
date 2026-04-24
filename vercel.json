@@ -1,0 +1,15 @@
+{
+  "functions": {
+    "src/app/api/rtm/route.ts": { "maxDuration": 60 },
+    "src/app/api/strategia/route.ts": { "maxDuration": 60 },
+    "src/app/api/generate-posts/route.ts": { "maxDuration": 60 },
+    "src/app/api/kampania/route.ts": { "maxDuration": 60 },
+    "src/app/api/persona/route.ts": { "maxDuration": 60 },
+    "src/app/api/repurpose/route.ts": { "maxDuration": 60 },
+    "src/app/api/video-script/route.ts": { "maxDuration": 60 },
+    "src/app/api/generate-report/route.ts": { "maxDuration": 60 },
+    "src/app/api/listening/route.ts": { "maxDuration": 60 },
+    "src/app/api/competitor/route.ts": { "maxDuration": 60 },
+    "src/app/api/analyze-brand/route.ts": { "maxDuration": 60 }
+  }
+}
