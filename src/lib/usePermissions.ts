@@ -47,7 +47,7 @@ export function usePermissions() {
           .from('user_permissions')
           .select('*')
           .eq('user_id', user.id)
-          .single()
+          .maybeSingle()
 
         if (p) {
           setPerms({

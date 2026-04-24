@@ -19,7 +19,7 @@ export default function LimitBanner() {
       if (profile?.is_admin) return // admins don't see limit banner
 
       const { data: perms } = await supabase
-        .from('user_permissions').select('max_posts_per_month').eq('user_id', user.id).single()
+        .from('user_permissions').select('max_posts_per_month').eq('user_id', user.id).maybeSingle()
 
       const planLimits: Record<string,number> = { free:10, pro:200, agency:9999 }
       const limit = perms?.max_posts_per_month ?? planLimits[profile?.plan||'free'] ?? 10
