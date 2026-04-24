@@ -8,12 +8,17 @@ export async function GET(request: NextRequest) {
   const inviteToken = searchParams.get('invite')
   const next = searchParams.get('next') ?? '/'
 
+  // Use APP_URL env var if available, fallback to origin
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || origin
+
   if (code) {
     const supabase = await createServerSupabaseClient()
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
+    console.log('Auth callback - code exchange:', error ? error.message : 'OK', 'user:', data?.user?.id)
+
     if (!error && data.user) {
-      // Handle invite token — mark as used and set plan
+      // Handle invite token
       if (inviteToken) {
         try {
           const admin = createAdminClient()
@@ -42,12 +47,14 @@ export async function GET(request: NextRequest) {
         .from('profiles').select('onboarded').eq('id', data.user.id).single()
 
       if (!profile?.onboarded) {
-        return NextResponse.redirect(`${origin}/onboarding`)
+        return NextResponse.redirect(`${appUrl}/onboarding`)
       }
 
-      return NextResponse.redirect(`${origin}${next}`)
+      return NextResponse.redirect(`${appUrl}${next}`)
     }
+
+    console.error('Auth callback error:', error?.message)
   }
 
-  return NextResponse.redirect(`${origin}/login?error=auth_callback_error`)
+  return NextResponse.redirect(`${appUrl}/login?error=auth_callback_error`)
 }
