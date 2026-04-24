@@ -15,6 +15,7 @@ function robustParse(raw: string) {
       .replace(/[\u2018\u2019]/g, "'")
       .replace(/[\u201C\u201D]/g, '"')
       .replace(/,(\s*[}\]])/g, '$1')
+      .replace(/\n/g, ' ')
     try { return JSON.parse(clean) } catch {}
   }
   throw new Error('Blad parsowania')
@@ -36,22 +37,94 @@ export async function POST(req: NextRequest) {
     const plt = Array.isArray(platforms) ? platforms[0] : 'facebook'
     const dur = String(duration || '3 miesiace')
     const goalsStr = Array.isArray(goals) ? goals.join(', ') : String(goals || 'swiadomosc marki')
+    const pltsStr = Array.isArray(platforms) ? platforms.join(', ') : String(platforms || 'facebook, instagram')
 
-    const systemPrompt = `Jestes strategiem social media. Odpowiadasz WYLACZNIE czystym JSON bez zadnego tekstu przed ani po. Nie uzywaj markdown.`
+    const prompt = `Jestes doswiadczonym strategiem social media.
+Stworz kompleksowa strategie komunikacji.
 
-    const userPrompt = `Stworz strategie komunikacji.
-Marka: ${brand} | Branza: ${ind} | Ton: ${tone} | USP: ${usp} | Persona: ${persona}
-Konkurenci: ${String(competitors || 'brak').slice(0, 60)} | Cele: ${goalsStr} | Budzet: ${String(budget || 'sredni')} | Horyzont: ${dur} | Platformy: ${String(Array.isArray(platforms) ? platforms.join(', ') : platforms || 'facebook, instagram')}
+Dane:
+- Marka: ${brand}
+- Branza: ${ind}
+- Ton komunikacji: ${tone}
+- USP: ${usp}
+- Persona klienta: ${persona}
+- Konkurenci: ${String(competitors || 'brak').slice(0, 80)}
+- Cele: ${goalsStr}
+- Budzet: ${String(budget || 'sredni')}
+- Horyzont: ${dur}
+- Platformy: ${pltsStr}
 
-Zwroc TYLKO ten JSON (wypelnij CAPS wartosciami):
-
-{"executiveSummary":"PODSUMOWANIE 2-3 ZDANIA","brandPosition":{"currentState":"OBECNA POZYCJA","desiredState":"CEL ZA ${dur}","gap":"CO ZROBIC","uniqueVoice":"UNIKALNY GLOS"},"audienceInsight":{"primarySegment":"OPIS SEGMENTU","painPoints":["BOL 1","BOL 2","BOL 3"],"motivations":["MOTYWACJA 1","MOTYWACJA 2"],"contentConsumption":"KIEDY I JAK KONSUMUJE","decisionFactors":["CZYNNIK 1","CZYNNIK 2"]},"competitiveAnalysis":{"marketGaps":["LUKA 1","LUKA 2","LUKA 3"],"differentiators":["WYROZNIK 1","WYROZNIK 2"],"competitorWeaknesses":"CO ROBI ZLE"},"contentStrategy":{"pillars":[{"name":"FILAR 1","description":"OPIS","percentage":30,"examples":["PRZYKLAD 1","PRZYKLAD 2"]},{"name":"FILAR 2","description":"OPIS","percentage":25,"examples":["PRZYKLAD"]},{"name":"FILAR 3","description":"OPIS","percentage":25,"examples":["PRZYKLAD"]},{"name":"FILAR 4","description":"OPIS","percentage":20,"examples":["PRZYKLAD"]}],"toneGuidelines":["ZASADA 1","ZASADA 2","ZASADA 3"],"doList":["ROBIC 1","ROBIC 2","ROBIC 3"],"dontList":["NIE ROBIC 1","NIE ROBIC 2"]},"platformStrategy":[{"platform":"${plt}","role":"ROLA","frequency":"X RAZY TYGODNIOWO","bestFormats":["FORMAT 1","FORMAT 2"],"bestTimes":"GODZINY","kpi":"KPI","contentMix":"PROPORCJE"}],"contentCalendar":{"weeklyRhythm":"RYTM TYGODNIOWY","monthlyThemes":["TEMAT 1","TEMAT 2","TEMAT 3"],"keyDates":["DATA 1","DATA 2"],"campaignIdeas":[{"name":"KAMPANIA 1","concept":"OPIS","timing":"KIEDY"},{"name":"KAMPANIA 2","concept":"OPIS","timing":"KIEDY"}]},"kpis":[{"metric":"Zasieg","target":"LICZBA/MIES","timeline":"${dur}","howToMeasure":"NARZEDZIE"},{"metric":"Zaangazowanie","target":"PROCENT","timeline":"${dur}","howToMeasure":"JAK"},{"metric":"Obserwujacy","target":"WZROST/MIES","timeline":"${dur}","howToMeasure":"JAK"}],"actionPlan":[{"week":"Tydzien 1-2","actions":["AKCJA 1","AKCJA 2","AKCJA 3"]},{"week":"Tydzien 3-4","actions":["AKCJA 1","AKCJA 2"]},{"week":"Miesiac 2","actions":["AKCJA 1","AKCJA 2"]},{"week":"Miesiac 3","actions":["AKCJA 1","AKCJA 2"]}],"budget":{"organic":"PLAN ORGANICZNY","paid":"PODZIAL BUDZETU","tools":["NARZEDZIE 1","NARZEDZIE 2","NARZEDZIE 3"]},"hashtags":{"brand":["#brand1","#brand2"],"industry":["#branza1","#branza2","#branza3"],"campaign":"#hashtagKampanii"}}`
+Odpowiedz TYLKO jako czysty JSON. Struktura:
+{
+  "executiveSummary": "podsumowanie 2-3 zdania",
+  "brandPosition": {
+    "currentState": "obecna pozycja",
+    "desiredState": "cel docelowy",
+    "gap": "co trzeba zrobic",
+    "uniqueVoice": "unikalny glos marki"
+  },
+  "audienceInsight": {
+    "primarySegment": "opis segmentu",
+    "painPoints": ["bol 1", "bol 2", "bol 3"],
+    "motivations": ["motywacja 1", "motywacja 2"],
+    "contentConsumption": "kiedy i jak konsumuje",
+    "decisionFactors": ["czynnik 1", "czynnik 2"]
+  },
+  "competitiveAnalysis": {
+    "marketGaps": ["luka 1", "luka 2", "luka 3"],
+    "differentiators": ["wyroznik 1", "wyroznik 2"],
+    "competitorWeaknesses": "co robi zle"
+  },
+  "contentStrategy": {
+    "pillars": [
+      {"name": "Filar 1", "description": "opis", "percentage": 30, "examples": ["przyklad 1", "przyklad 2"]},
+      {"name": "Filar 2", "description": "opis", "percentage": 25, "examples": ["przyklad"]},
+      {"name": "Filar 3", "description": "opis", "percentage": 25, "examples": ["przyklad"]},
+      {"name": "Filar 4", "description": "opis", "percentage": 20, "examples": ["przyklad"]}
+    ],
+    "toneGuidelines": ["zasada 1", "zasada 2", "zasada 3"],
+    "doList": ["robic 1", "robic 2", "robic 3"],
+    "dontList": ["nie robic 1", "nie robic 2"]
+  },
+  "platformStrategy": [
+    {"platform": "${plt}", "role": "rola", "frequency": "X razy tygodniowo", "bestFormats": ["format 1", "format 2"], "bestTimes": "godziny", "kpi": "KPI", "contentMix": "proporcje"}
+  ],
+  "contentCalendar": {
+    "weeklyRhythm": "rytm tygodniowy",
+    "monthlyThemes": ["temat 1", "temat 2", "temat 3"],
+    "keyDates": ["data 1", "data 2"],
+    "campaignIdeas": [
+      {"name": "Kampania 1", "concept": "opis", "timing": "kiedy"},
+      {"name": "Kampania 2", "concept": "opis", "timing": "kiedy"}
+    ]
+  },
+  "kpis": [
+    {"metric": "Zasieg", "target": "liczba/mies", "timeline": "${dur}", "howToMeasure": "narzedzie"},
+    {"metric": "Zaangazowanie", "target": "procent", "timeline": "${dur}", "howToMeasure": "jak"},
+    {"metric": "Obserwujacy", "target": "wzrost/mies", "timeline": "${dur}", "howToMeasure": "jak"}
+  ],
+  "actionPlan": [
+    {"week": "Tydzien 1-2", "actions": ["akcja 1", "akcja 2", "akcja 3"]},
+    {"week": "Tydzien 3-4", "actions": ["akcja 1", "akcja 2"]},
+    {"week": "Miesiac 2", "actions": ["akcja 1", "akcja 2"]},
+    {"week": "Miesiac 3", "actions": ["akcja 1", "akcja 2"]}
+  ],
+  "budget": {
+    "organic": "plan organiczny",
+    "paid": "podzial budzetu",
+    "tools": ["narzedzie 1", "narzedzie 2", "narzedzie 3"]
+  },
+  "hashtags": {
+    "brand": ["#brand1", "#brand2"],
+    "industry": ["#branza1", "#branza2", "#branza3"],
+    "campaign": "#hashtagKampanii"
+  }
+}`
 
     const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 2500,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }]
+      messages: [{ role: 'user', content: prompt }]
     })
 
     const raw = response.content

@@ -15,9 +15,10 @@ function robustParse(raw: string) {
       .replace(/[\u2018\u2019]/g, "'")
       .replace(/[\u201C\u201D]/g, '"')
       .replace(/,(\s*[}\]])/g, '$1')
+      .replace(/\n/g, ' ')
     try { return JSON.parse(clean) } catch {}
   }
-  throw new Error('Blad parsowania odpowiedzi')
+  throw new Error('Blad parsowania odpowiedzi AI')
 }
 
 export async function POST(req: NextRequest) {
@@ -35,22 +36,65 @@ export async function POST(req: NextRequest) {
     const ind = String(industry || dna?.industry || 'ogolna').slice(0, 50)
     const tone = String(dna?.tone || 'profesjonalny').slice(0, 80)
     const persona = String(dna?.persona || '').slice(0, 80)
-    const plt = Array.isArray(platforms) ? platforms.slice(0, 2).join(' i ') : 'facebook i instagram'
+    const plt = Array.isArray(platforms) ? platforms.slice(0, 2) : ['facebook', 'instagram']
 
-    const systemPrompt = `Jestes ekspertem Real Time Marketingu. Odpowiadasz WYLACZNIE czystym JSON bez zadnego tekstu przed ani po. Nie uzywaj markdown ani backtickow.`
+    const prompt = `Jestes ekspertem RTM (Real Time Marketing). 
+Dzisiaj: ${today}. Kraj: ${country || 'Polska'}.
+Marka: ${brand}. Branza: ${ind}. Ton: ${tone}. Odbiorcy: ${persona}.
+Platformy: ${plt.join(', ')}.
 
-    const userPrompt = `Dzisiaj: ${today}. Kraj: ${country || 'Polska'}.
-Marka: ${brand}. Branza: ${ind}. Ton: ${tone}. Odbiorcy: ${persona}. Platformy: ${plt}.
+Zadanie: Znajdz 3 aktualne okazje RTM i wygeneruj posty dla marki ${brand}.
 
-Wygeneruj 3 okazje RTM na dzis. Zwroc TYLKO ten JSON (wypelnij CAPS wartosciami):
-
-{"date":"${today}","opportunities":[{"id":"o1","title":"NAZWA OKAZJI","category":"swieto","relevance":"wysokie","why":"DLACZEGO PASUJE DO MARKI","risk":"brak","urgency":"dzisiaj","posts":[{"platform":"facebook","angle":"KONCEPT PODPIECIA","text":"PELNY TEKST POSTA MIN 3 ZDANIA","hook":"PIERWSZE ZDANIE","hashtags":["#tag1","#tag2","#tag3"],"imageIdea":"POMYSL NA GRAFIKE"},{"platform":"instagram","angle":"KONCEPT IG","text":"CAPTION Z EMOJI","hook":"HOOK Z EMOJI","hashtags":["#tag1","#tag2","#tag3","#tag4"],"imageIdea":"POMYSL NA REEL"}]},{"id":"o2","title":"NAZWA 2","category":"trend","relevance":"srednie","why":"DLACZEGO","risk":"brak","urgency":"ten tydzien","posts":[{"platform":"facebook","angle":"KONCEPT","text":"TEKST POSTA","hook":"HOOK","hashtags":["#tag1","#tag2"],"imageIdea":"POMYSL"},{"platform":"instagram","angle":"KONCEPT","text":"CAPTION","hook":"HOOK","hashtags":["#tag1","#tag2"],"imageIdea":"POMYSL"}]},{"id":"o3","title":"NAZWA 3","category":"kultura","relevance":"srednie","why":"DLACZEGO","risk":"brak","urgency":"ten tydzien","posts":[{"platform":"facebook","angle":"KONCEPT","text":"TEKST","hook":"HOOK","hashtags":["#tag1"],"imageIdea":"POMYSL"}]}],"todayCalendar":[{"name":"SWIETO LUB DZIEN TEMATYCZNY","type":"swieto","potential":"wysoki","idea":"POMYSL DLA MARKI"},{"name":"INNE SWIETO","type":"dzien_tematyczny","potential":"sredni","idea":"POMYSL"}],"weeklyTrends":[{"trend":"TREND TYGODNIA","platform":"instagram","relevance":"JAK MARKA MOZE SIE PODPIAC"},{"trend":"TREND 2","platform":"tiktok","relevance":"JAK SIE PODPIAC"}],"avoidTopics":["TEMAT DO UNIKNIECIA"],"rtmTips":["WSKAZOWKA 1","WSKAZOWKA 2","WSKAZOWKA 3"]}`
+Odpowiedz TYLKO jako JSON. Struktura:
+{
+  "date": "data dzisiaj",
+  "opportunities": [
+    {
+      "id": "o1",
+      "title": "nazwa okazji",
+      "category": "swieto lub trend lub news lub kultura",
+      "relevance": "wysokie",
+      "why": "dlaczego pasuje do tej marki",
+      "risk": "ryzyko komunikacyjne lub brak",
+      "urgency": "dzisiaj",
+      "posts": [
+        {
+          "platform": "facebook",
+          "angle": "koncept podpiecia",
+          "text": "pelny tekst posta min 3 zdania",
+          "hook": "pierwsze zdanie",
+          "hashtags": ["#tag1", "#tag2", "#tag3"],
+          "imageIdea": "opis grafiki"
+        },
+        {
+          "platform": "instagram",
+          "angle": "koncept dla IG",
+          "text": "caption z emoji",
+          "hook": "hook z emoji",
+          "hashtags": ["#tag1", "#tag2", "#tag3", "#tag4"],
+          "imageIdea": "opis reela lub grafiki"
+        }
+      ]
+    },
+    { drugi obiekt okazji },
+    { trzeci obiekt okazji }
+  ],
+  "todayCalendar": [
+    {"name": "nazwa swieta", "type": "swieto", "potential": "wysoki", "idea": "pomysl dla marki"},
+    {"name": "inne swieto", "type": "dzien_tematyczny", "potential": "sredni", "idea": "pomysl"}
+  ],
+  "weeklyTrends": [
+    {"trend": "trend tygodnia", "platform": "instagram", "relevance": "jak sie podpiac"},
+    {"trend": "trend 2", "platform": "tiktok", "relevance": "jak sie podpiac"}
+  ],
+  "avoidTopics": ["temat do unikniecia"],
+  "rtmTips": ["wskazowka 1", "wskazowka 2", "wskazowka 3"]
+}`
 
     const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 2500,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }]
+      messages: [{ role: 'user', content: prompt }]
     })
 
     const raw = response.content
