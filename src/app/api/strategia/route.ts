@@ -1,66 +1,56 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { checkGenerationLimit } from '@/lib/checkLimits'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-export const maxDuration = 60
+function robustParse(raw: string) {
+  let clean = raw.replace(/```json\n?|```\n?/g, '').trim()
+  try { return JSON.parse(clean) } catch {}
+  const s = clean.indexOf('{'), e = clean.lastIndexOf('}')
+  if (s !== -1 && e !== -1) {
+    clean = clean.slice(s, e + 1)
+    try { return JSON.parse(clean) } catch {}
+    clean = clean.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/,(\s*[}\]])/g, '$1')
+    try { return JSON.parse(clean) } catch {}
+  }
+  throw new Error('Blad parsowania')
+}
 
 export async function POST(req: NextRequest) {
+  const limitCheck = await checkGenerationLimit()
+  if (!limitCheck.allowed) {
+    return NextResponse.json({ error: limitCheck.reason, limit_exceeded: true }, { status: 429 })
+  }
+
   try {
     const { dna, competitors, targetAudience, goals, budget, duration, platforms } = await req.json()
-    const brand = (dna?.brandName || 'Marka').replace(/['"]/g, '')
-    const ind = (dna?.industry || 'ogolna').replace(/['"]/g, '')
-    const tone = (dna?.tone || 'profesjonalny').replace(/['"]/g, '')
+    const brand = (dna?.brandName || 'Marka').replace(/['"\\]/g, '')
+    const ind = (dna?.industry || 'ogolna').replace(/['"\\]/g, '')
+    const tone = (dna?.tone || 'profesjonalny').replace(/['"\\]/g, '')
+    const usp = (dna?.usp || '').replace(/['"\\]/g, '').slice(0, 80)
+    const persona = (dna?.persona || '').replace(/['"\\]/g, '').slice(0, 80)
+    const plt = (platforms || ['facebook','instagram']).join(', ')
+    const dur = duration || '3 miesiace'
 
-    const prompt = `Strateg social media. Stworz strategie komunikacji.
-Marka: ${brand}, branza: ${ind}, ton: ${tone}
-USP: ${(dna?.usp||'').slice(0,80)}, persona: ${(dna?.persona||'').slice(0,80)}
-Konkurenci: ${(competitors||'').slice(0,80)}, cele: ${(goals||[]).join(', ')}
-Budzet: ${budget||'sredni'}, horyzont: ${duration||'3 miesiace'}
-Platformy: ${(platforms||['facebook','instagram']).join(', ')}
+    const prompt = `Strateg social media. Stworz strategie dla marki.
+Marka: ${brand} | Branza: ${ind} | Ton: ${tone} | USP: ${usp} | Persona: ${persona}
+Konkurenci: ${(competitors||'brak').slice(0,60)} | Cele: ${(goals||[]).join(', ')} | Budzet: ${budget||'sredni'} | Horyzont: ${dur} | Platformy: ${plt}
 
-Odpowiedz TYLKO JSON:
-{"executiveSummary":"podsumowanie strategii 3 zdania konkretne","brandPosition":{"currentState":"obecna pozycja na rynku","desiredState":"cel za ${duration||'3 miesiace'} konkretny mierzalny","gap":"co trzeba zrobic","uniqueVoice":"jak marka powinna brzmiec co ja wyróznia"},"audienceInsight":{"primarySegment":"opis segmentu demografia psychografia","painPoints":["konkretny bol 1","bol 2","bol 3"],"motivations":["motywacja 1","motywacja 2"],"contentConsumption":"kiedy i jak konsumuje content","decisionFactors":["czynnik 1","czynnik 2"]},"competitiveAnalysis":{"marketGaps":["luka rynkowa 1","luka 2","luka 3"],"differentiators":["wyroznik 1","wyroznik 2"],"competitorWeaknesses":"co konkurencja robi zle"},"contentStrategy":{"pillars":[{"name":"Filar 1 nazwa","description":"opis co i dlaczego","percentage":30,"examples":["przyklad posta","przyklad 2"]},{"name":"Filar 2","description":"opis","percentage":25,"examples":["przyklad"]},{"name":"Filar 3","description":"opis","percentage":25,"examples":["przyklad"]},{"name":"Filar 4","description":"opis","percentage":20,"examples":["przyklad"]}],"toneGuidelines":["zasada 1","zasada 2","zasada 3"],"doList":["robic 1","robic 2","robic 3"],"dontList":["nie robic 1","nie robic 2"]},"platformStrategy":[{"platform":"${(platforms||['facebook'])[0]}","role":"rola w strategii","frequency":"X razy tygodniowo","bestFormats":["format 1","format 2"],"bestTimes":"godziny i dni","kpi":"glowny KPI","contentMix":"proporcje tresci"}],"contentCalendar":{"weeklyRhythm":"szczegolowy rytm tygodniowy","monthlyThemes":["temat 1","temat 2","temat 3"],"keyDates":["data 1","data 2"],"campaignIdeas":[{"name":"Kampania 1","concept":"opis konceptu","timing":"kiedy"},{"name":"Kampania 2","concept":"opis","timing":"kiedy"}]},"kpis":[{"metric":"Zasieg","target":"liczba/mies","timeline":"${duration||'3 miesiace'}","howToMeasure":"narzedzie"},{"metric":"Zaangazowanie","target":"procent","timeline":"${duration||'3 miesiace'}","howToMeasure":"jak mierzyc"},{"metric":"Obserwujacy","target":"wzrost/mies","timeline":"${duration||'3 miesiace'}","howToMeasure":"jak mierzyc"}],"actionPlan":[{"week":"Tydzien 1-2","actions":["akcja 1","akcja 2","akcja 3"]},{"week":"Tydzien 3-4","actions":["akcja 1","akcja 2"]},{"week":"Miesiac 2","actions":["akcja 1","akcja 2"]},{"week":"Miesiac 3","actions":["akcja 1","akcja 2"]}],"budget":{"organic":"plan organiczny co robic","paid":"jak rozdzielic budzet ${budget||'dostepny'}","tools":["narzedzie 1","narzedzie 2","narzedzie 3"]},"hashtags":{"brand":["#brand1","#brand2"],"industry":["#branża1","#branża2","#branża3"],"campaign":"#hashtagKampanii"}}`
+JSON (bez markdown):
+{"executiveSummary":"PODSUMOWANIE 2-3 ZDANIA KONKRETNE","brandPosition":{"currentState":"OBECNA POZYCJA","desiredState":"CEL ZA ${dur}","gap":"CO ZROBIC","uniqueVoice":"UNIKALNY GLOS MARKI"},"audienceInsight":{"primarySegment":"OPIS SEGMENTU","painPoints":["BOL 1","BOL 2","BOL 3"],"motivations":["MOTYWACJA 1","MOTYWACJA 2"],"contentConsumption":"KIEDY I JAK KONSUMUJE CONTENT","decisionFactors":["CZYNNIK 1","CZYNNIK 2"]},"competitiveAnalysis":{"marketGaps":["LUKA 1","LUKA 2","LUKA 3"],"differentiators":["WYROZNIK 1","WYROZNIK 2"],"competitorWeaknesses":"CO KONKURENCJA ROBI ZLE"},"contentStrategy":{"pillars":[{"name":"FILAR 1","description":"OPIS CO I DLACZEGO","percentage":30,"examples":["PRZYKLAD POSTA","PRZYKLAD 2"]},{"name":"FILAR 2","description":"OPIS","percentage":25,"examples":["PRZYKLAD"]},{"name":"FILAR 3","description":"OPIS","percentage":25,"examples":["PRZYKLAD"]},{"name":"FILAR 4","description":"OPIS","percentage":20,"examples":["PRZYKLAD"]}],"toneGuidelines":["ZASADA 1","ZASADA 2","ZASADA 3"],"doList":["ROBIC 1","ROBIC 2","ROBIC 3"],"dontList":["NIE ROBIC 1","NIE ROBIC 2"]},"platformStrategy":[{"platform":"${plt.split(',')[0].trim()}","role":"ROLA W STRATEGII","frequency":"X RAZY TYGODNIOWO","bestFormats":["FORMAT 1","FORMAT 2"],"bestTimes":"GODZINY I DNI","kpi":"GLOWNY KPI","contentMix":"PROPORCJE TRESCI"}],"contentCalendar":{"weeklyRhythm":"RYTM TYGODNIOWY SZCZEGOLOWY","monthlyThemes":["TEMAT 1","TEMAT 2","TEMAT 3"],"keyDates":["DATA 1","DATA 2"],"campaignIdeas":[{"name":"KAMPANIA 1","concept":"OPIS KONCEPTU","timing":"KIEDY"},{"name":"KAMPANIA 2","concept":"OPIS","timing":"KIEDY"}]},"kpis":[{"metric":"Zasieg","target":"LICZBA/MIES","timeline":"${dur}","howToMeasure":"NARZEDZIE"},{"metric":"Zaangazowanie","target":"PROCENT","timeline":"${dur}","howToMeasure":"JAK MIERZYC"},{"metric":"Obserwujacy","target":"WZROST/MIES","timeline":"${dur}","howToMeasure":"JAK MIERZYC"}],"actionPlan":[{"week":"Tydzien 1-2","actions":["AKCJA 1","AKCJA 2","AKCJA 3"]},{"week":"Tydzien 3-4","actions":["AKCJA 1","AKCJA 2"]},{"week":"Miesiac 2","actions":["AKCJA 1","AKCJA 2"]},{"week":"Miesiac 3","actions":["AKCJA 1","AKCJA 2"]}],"budget":{"organic":"PLAN ORGANICZNY","paid":"PODZIAL BUDZETU ${budget||'dostepnego'}","tools":["NARZEDZIE 1","NARZEDZIE 2","NARZEDZIE 3"]},"hashtags":{"brand":["#BRAND1","#BRAND2"],"industry":["#BRANZA1","#BRANZA2","#BRANZA3"],"campaign":"#HASHTAG_KAMPANII"}}`
 
-    const stream = await client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 3500,
-      stream: true,
+    const response = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2500,
       messages: [{ role: 'user', content: prompt }]
     })
 
-    const encoder = new TextEncoder()
-    const readable = new ReadableStream({
-      async start(controller) {
-        let fullText = ''
-        try {
-          for await (const event of stream) {
-            if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-              fullText += event.delta.text
-            }
-          }
-          let clean = fullText.replace(/```json\n?|```\n?/g, '').trim()
-          const s = clean.indexOf('{'), e = clean.lastIndexOf('}')
-          if (s !== -1 && e !== -1) clean = clean.slice(s, e + 1)
-          try {
-            const parsed = JSON.parse(clean)
-            controller.enqueue(encoder.encode(JSON.stringify({ ok: true, data: parsed })))
-          } catch {
-            controller.enqueue(encoder.encode(JSON.stringify({ error: 'Blad parsowania' })))
-          }
-        } catch(err) {
-          controller.enqueue(encoder.encode(JSON.stringify({ error: err instanceof Error ? err.message : 'Blad' })))
-        }
-        controller.close()
-      }
-    })
-
-    return new Response(readable, {
-      headers: { 'Content-Type': 'application/json', 'Transfer-Encoding': 'chunked' }
-    })
+    const raw = response.content.map((b: {type:string;text?:string}) => b.type==='text'?b.text:'').join('')
+    const parsed = robustParse(raw)
+    return NextResponse.json({ ok: true, data: parsed })
   } catch (err) {
-    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : 'Blad strategii' }), {
-      status: 500, headers: { 'Content-Type': 'application/json' }
-    })
+    console.error('Strategia error:', err)
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Blad strategii' }, { status: 500 })
   }
 }

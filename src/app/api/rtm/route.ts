@@ -1,65 +1,56 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { checkGenerationLimit } from '@/lib/checkLimits'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-export const maxDuration = 60
+function robustParse(raw: string) {
+  let clean = raw.replace(/```json\n?|```\n?/g, '').trim()
+  try { return JSON.parse(clean) } catch {}
+  const s = clean.indexOf('{'), e = clean.lastIndexOf('}')
+  if (s !== -1 && e !== -1) {
+    clean = clean.slice(s, e + 1)
+    try { return JSON.parse(clean) } catch {}
+    clean = clean.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/,(\s*[}\]])/g, '$1')
+    try { return JSON.parse(clean) } catch {}
+  }
+  throw new Error('Blad parsowania')
+}
 
 export async function POST(req: NextRequest) {
+  const limitCheck = await checkGenerationLimit()
+  if (!limitCheck.allowed) {
+    return NextResponse.json({ error: limitCheck.reason, limit_exceeded: true }, { status: 429 })
+  }
+
   try {
     const { dna, industry, platforms, country } = await req.json()
     const today = new Date().toLocaleDateString('pl', { weekday:'long', year:'numeric', month:'long', day:'numeric' })
-    const brand = (dna?.brandName || 'Marka').replace(/['"]/g, '')
-    const ind = (industry || dna?.industry || 'ogolna').replace(/['"]/g, '')
-    const tone = (dna?.tone || 'profesjonalny').replace(/['"]/g, '')
-    const persona = (dna?.persona || '').replace(/['"]/g, '').slice(0, 100)
+    const brand = (dna?.brandName || 'Marka').replace(/['"\\]/g, '')
+    const ind = (industry || dna?.industry || 'ogolna').replace(/['"\\]/g, '')
+    const tone = (dna?.tone || 'profesjonalny').replace(/['"\\]/g, '')
+    const persona = (dna?.persona || '').replace(/['"\\]/g, '').slice(0, 80)
+    const plt = (platforms || ['facebook', 'instagram']).slice(0, 2).join(' i ')
 
-    const prompt = `Ekspert RTM. Dzis: ${today}. Marka: ${brand}, branza: ${ind}, ton: ${tone}, persona: ${persona}, kraj: ${country||'Polska'}, platformy: ${(platforms||['facebook','instagram']).join(', ')}.
+    const prompt = `Jestes ekspertem RTM. Dzis: ${today}. Kraj: ${country || 'Polska'}.
+Marka: ${brand} | Branza: ${ind} | Ton: ${tone} | Odbiorcy: ${persona} | Platformy: ${plt}
 
-Znajdz 4 okazje RTM i wygeneruj posty. Tylko czysty JSON:
-{"date":"${today}","opportunities":[{"id":"o1","title":"nazwa trendu/swieta/newsa","category":"sport|kultura|technologia|swieto|trend|news|meme","relevance":"wysokie","why":"dlaczego pasuje do ${brand}","risk":"ryzyko lub brak","urgency":"dzisiaj|ten tydzien","posts":[{"platform":"facebook","angle":"koncept podpiecia","text":"pelny tekst posta min 100 slow w tonie ${tone}","hook":"pierwsze zdanie","hashtags":["#tag1","#tag2","#tag3"],"imageIdea":"pomysl na grafike"},{"platform":"instagram","angle":"koncept dla IG","text":"caption z emoji","hook":"hook+emoji","hashtags":["#tag1","#tag2","#tag3","#tag4"],"imageIdea":"pomysl na reel lub grafike"}]},{"id":"o2","title":"nazwa 2","category":"swieto","relevance":"srednie","why":"dlaczego pasuje","risk":"brak","urgency":"dzisiaj","posts":[{"platform":"facebook","angle":"koncept","text":"tekst posta","hook":"hook","hashtags":["#tag"],"imageIdea":"pomysl"},{"platform":"instagram","angle":"koncept","text":"caption","hook":"hook","hashtags":["#tag"],"imageIdea":"pomysl"}]},{"id":"o3","title":"nazwa 3","category":"trend","relevance":"srednie","why":"dlaczego","risk":"brak","urgency":"ten tydzien","posts":[{"platform":"facebook","angle":"koncept","text":"tekst","hook":"hook","hashtags":["#tag"],"imageIdea":"pomysl"},{"platform":"instagram","angle":"koncept","text":"caption","hook":"hook","hashtags":["#tag"],"imageIdea":"pomysl"}]},{"id":"o4","title":"nazwa 4","category":"kultura","relevance":"niskie","why":"dlaczego","risk":"brak","urgency":"ten tydzien","posts":[{"platform":"facebook","angle":"koncept","text":"tekst","hook":"hook","hashtags":["#tag"],"imageIdea":"pomysl"}]}],"todayCalendar":[{"name":"swieto lub rocznica","type":"swieto|rocznica|dzien_tematyczny","potential":"wysoki|sredni","idea":"pomysl dla ${brand}"},{"name":"swieto 2","type":"dzien_tematyczny","potential":"sredni","idea":"pomysl"}],"weeklyTrends":[{"trend":"trend tygodnia","platform":"instagram","relevance":"jak ${brand} moze sie podpiac"},{"trend":"trend 2","platform":"tiktok","relevance":"jak sie podpiac"}],"avoidTopics":["temat do unikniecia z powodem","temat 2"],"rtmTips":["wskazowka RTM dla ${brand} na dzis","wskazowka 2","wskazowka 3"]}`
+Znajdz 3 aktualne okazje RTM (swieta, trendy, newsy) i napisz gotowe posty.
 
-    const stream = await client.messages.create({
+JSON (bez markdown):
+{"date":"${today}","opportunities":[{"id":"o1","title":"NAZWA","category":"swieto","relevance":"wysokie","why":"DLACZEGO PASUJE DO ${brand}","risk":"brak","urgency":"dzisiaj","posts":[{"platform":"facebook","angle":"KONCEPT","text":"TEKST POSTA DLA ${brand} - min 3 zdania w tonie ${tone}","hook":"PIERWSZE ZDANIE","hashtags":["#tag1","#tag2","#tag3"],"imageIdea":"POMYSL NA GRAFIKE"},{"platform":"instagram","angle":"KONCEPT IG","text":"CAPTION Z EMOJI","hook":"HOOK","hashtags":["#tag1","#tag2","#tag3","#tag4"],"imageIdea":"POMYSL"}]},{"id":"o2","title":"NAZWA2","category":"trend","relevance":"srednie","why":"DLACZEGO","risk":"brak","urgency":"ten tydzien","posts":[{"platform":"facebook","angle":"KONCEPT","text":"TEKST POSTA","hook":"HOOK","hashtags":["#tag"],"imageIdea":"POMYSL"},{"platform":"instagram","angle":"KONCEPT","text":"CAPTION","hook":"HOOK","hashtags":["#tag"],"imageIdea":"POMYSL"}]},{"id":"o3","title":"NAZWA3","category":"kultura","relevance":"srednie","why":"DLACZEGO","risk":"brak","urgency":"ten tydzien","posts":[{"platform":"facebook","angle":"KONCEPT","text":"TEKST","hook":"HOOK","hashtags":["#tag"],"imageIdea":"POMYSL"}]}],"todayCalendar":[{"name":"SWIETO LUB ROCZNICA","type":"swieto","potential":"wysoki","idea":"POMYSL DLA ${brand}"},{"name":"DZIEN TEMATYCZNY","type":"dzien_tematyczny","potential":"sredni","idea":"POMYSL"}],"weeklyTrends":[{"trend":"TREND","platform":"instagram","relevance":"JAK ${brand} MOZE SIE PODPIAC"},{"trend":"TREND2","platform":"tiktok","relevance":"JAK SIE PODPIAC"}],"avoidTopics":["TEMAT DO UNIKNIECIA - DLACZEGO"],"rtmTips":["WSKAZOWKA 1 DLA ${brand}","WSKAZOWKA 2","WSKAZOWKA 3"]}`
+
+    const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 3000,
-      stream: true,
+      max_tokens: 2500,
       messages: [{ role: 'user', content: prompt }]
     })
 
-    const encoder = new TextEncoder()
-    const readable = new ReadableStream({
-      async start(controller) {
-        let fullText = ''
-        try {
-          for await (const event of stream) {
-            if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-              fullText += event.delta.text
-            }
-          }
-          // Parse and send complete response
-          let clean = fullText.replace(/```json\n?|```\n?/g, '').trim()
-          const s = clean.indexOf('{'), e = clean.lastIndexOf('}')
-          if (s !== -1 && e !== -1) clean = clean.slice(s, e + 1)
-          
-          try {
-            const parsed = JSON.parse(clean)
-            controller.enqueue(encoder.encode(JSON.stringify({ ok: true, data: parsed })))
-          } catch {
-            controller.enqueue(encoder.encode(JSON.stringify({ error: 'Blad parsowania odpowiedzi AI' })))
-          }
-        } catch(err) {
-          controller.enqueue(encoder.encode(JSON.stringify({ error: err instanceof Error ? err.message : 'Blad' })))
-        }
-        controller.close()
-      }
-    })
-
-    return new Response(readable, {
-      headers: { 'Content-Type': 'application/json', 'Transfer-Encoding': 'chunked' }
-    })
+    const raw = response.content.map((b: {type:string;text?:string}) => b.type==='text'?b.text:'').join('')
+    const parsed = robustParse(raw)
+    return NextResponse.json({ ok: true, data: parsed })
   } catch (err) {
-    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : 'Blad RTM' }), {
-      status: 500, headers: { 'Content-Type': 'application/json' }
-    })
+    console.error('RTM error:', err)
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Blad RTM' }, { status: 500 })
   }
 }
