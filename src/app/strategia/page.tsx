@@ -60,9 +60,7 @@ export default function StrategiaPage() {
         body: JSON.stringify({ dna, competitors, targetAudience, goals, budget, duration, platforms })
       })
       const j = await res.json()
-      console.log('Strategia API response ok:', res.ok, 'has data:', !!j.data, 'error:', j.error)
       if (!res.ok) throw new Error(j.error || 'Blad serwera')
-      if (!j.data) throw new Error('Blad parsowania - brak danych')
       setData(j.data)
       const entry = historySave<StrategyData>('strategia', projectId, {
         title: `Strategia — ${dna?.brandName || 'Marka'}`,
