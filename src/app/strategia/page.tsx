@@ -97,7 +97,7 @@ export default function StrategiaPage() {
             setStreamText(prev => (prev + parsedLine!.chunk).slice(-300))
           }
           if (parsedLine.error) {
-            console.error('SSE error:', parsedLine.error)
+            console.error('SSE error:', parsedLine.error, 'debug:', (parsedLine as {debug?:unknown}).debug)
             throw new Error(parsedLine.error)
           }
           if (parsedLine.done && parsedLine.data) {
