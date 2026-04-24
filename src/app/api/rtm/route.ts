@@ -216,8 +216,10 @@ Wygeneruj DOKLADNIE 3 okazje RTM - wysoka jakosc per okazja, nie ilosc.`
             console.log('RTM parsed OK')
             send({ done: true, data: parsed })
           } else {
-            console.error('RTM parse failed')
-            send({ error: 'Nie mozna przetworzyc JSON' })
+            console.error('RTM parse failed. Raw len:', fullText.length)
+            console.error('First 500:', fullText.slice(0, 500))
+            console.error('Last 500:', fullText.slice(-500))
+            send({ error: 'Nie mozna przetworzyc JSON', debug: { len: fullText.length, first: fullText.slice(0, 200), last: fullText.slice(-200) } })
           }
           sentDone = true
         }

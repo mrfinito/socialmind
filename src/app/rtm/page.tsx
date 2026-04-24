@@ -102,6 +102,7 @@ export default function RtmPage() {
             setStreamProgress('Skanuje trendy i newsy...')
           }
           if (parsedLine.error) {
+            console.error('RTM SSE error:', parsedLine.error, 'debug:', (parsedLine as {debug?:unknown}).debug)
             throw new Error(parsedLine.error)
           }
           if (parsedLine.done && parsedLine.data) {
