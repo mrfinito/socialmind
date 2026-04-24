@@ -26,97 +26,198 @@ export async function POST(req: NextRequest) {
   try {
     const { dna, competitors, targetAudience, goals, budget, duration, platforms } = await req.json()
 
-    const prompt = `Jestes ekspertem od strategii komunikacji w social mediach. 
-Stworz pelna strategie komunikacji dla marki.
+    const prompt = `Jestes doswiadczonym strategiem komunikacji z wieloletnim doswiadczeniem w budowaniu strategii social media dla polskich i miedzynarodowych marek.
 
-DANE MARKI:
-Nazwa: ${dna?.brandName || 'Marka'}
+DANE DO STRATEGII:
+Marka: ${dna?.brandName || 'Marka'}
 Branza: ${dna?.industry || 'ogolna'}
-USP: ${dna?.usp || ''}
-Ton: ${dna?.tone || 'profesjonalny'}
-Persona klienta: ${dna?.persona || ''}
-Wartosci: ${dna?.values || ''}
+USP: ${dna?.usp || 'brak'}
+Ton komunikacji: ${dna?.tone || 'profesjonalny'}
+Persona klienta: ${dna?.persona || 'brak'}
+Wartosci marki: ${dna?.values || 'brak'}
+Slowa kluczowe: ${dna?.keywords || 'brak'}
 
-KONTEKST:
-Konkurenci: ${competitors || 'brak danych'}
-Grupa docelowa: ${targetAudience || dna?.persona || ''}
-Cele biznesowe: ${(goals || []).join(', ') || 'swiadomosc marki, sprzedaz'}
-Budzet: ${budget || 'nieokreslony'}
-Horyzont czasowy: ${duration || '3 miesiace'}
-Platformy: ${(platforms || ['facebook','instagram']).join(', ')}
+KONTEKST RYNKOWY:
+Glowni konkurenci: ${competitors || 'nie podano'}
+Grupa docelowa: ${targetAudience || dna?.persona || 'nie podano'}
+Cele biznesowe: ${(goals || []).join(', ') || 'swiadomosc marki'}
+Dostepny budzet: ${budget || 'sredni'}
+Horyzont strategii: ${duration || '3 miesiace'}
+Platformy do obslugi: ${(platforms || ['facebook','instagram']).join(', ')}
+
+TWOJE ZADANIE:
+Stworz kompleksowa, gotowa do wdrozenia strategie komunikacji w social mediach. Strategia musi byc:
+- Konkretna i operacyjna (nie ogolna)
+- Dostosowana do polskiego rynku
+- Realizowalna przy podanym budzecie
+- Mierzalna (konkretne KPI)
 
 Odpowiedz TYLKO czystym JSON:
+
 {
-  "executiveSummary": "krotkie podsumowanie strategii (3-4 zdania)",
+  "executiveSummary": "Strategiczne podsumowanie dla zarzadu — 3-4 zdania opisujace glowne zalozenia i oczekiwane rezultaty",
   "brandPosition": {
-    "currentState": "obecna pozycja marki na rynku",
-    "desiredState": "pozadana pozycja za ${duration || '3 miesiace'}",
-    "gap": "co trzeba zrobic zeby przejsc z A do B",
-    "uniqueVoice": "unikalny glos i styl komunikacji tej marki"
+    "currentState": "obiektywna ocena obecnej pozycji marki w social mediach i swiadomosci klientow",
+    "desiredState": "konkretny, mierzalny cel na koniec okresu ${duration || '3 miesiace'}",
+    "gap": "glowne wyzwania i dzialania potrzebne do osiagniecia celu",
+    "uniqueVoice": "unikalny glos i styl komunikacji — jak marka powinna brzmiec, co ja wyróznia komunikacyjnie"
   },
   "audienceInsight": {
-    "primarySegment": "glowny segment odbiorcy",
-    "painPoints": ["bol 1", "bol 2", "bol 3"],
-    "motivations": ["motywacja 1", "motywacja 2"],
-    "contentConsumption": "kiedy i jak konsumuje content",
-    "decisionFactors": ["czynnik 1", "czynnik 2"]
+    "primarySegment": "precyzyjny opis glownego segmentu odbiorcy — demografia, psychografia, zachowania",
+    "painPoints": ["konkretny bol lub problem grupy docelowej 1", "bol 2", "bol 3"],
+    "motivations": ["glowna motywacja do zakupu/kontaktu 1", "motywacja 2", "motywacja 3"],
+    "contentConsumption": "kiedy, gdzie i jak ta grupa konsumuje content w social mediach",
+    "decisionFactors": ["czynnik decyzji zakupowej 1", "czynnik 2", "czynnik 3"]
   },
   "competitiveAnalysis": {
-    "marketGaps": ["luka 1", "luka 2", "luka 3"],
-    "differentiators": ["wyroznik 1", "wyroznik 2"],
-    "competitorWeaknesses": "co konkurencja robi zle"
+    "marketGaps": ["konkretna luka rynkowa 1 ktora marka moze wypelnic", "luka 2", "luka 3"],
+    "differentiators": ["konkretny wyroznik vs konkurencja 1", "wyroznik 2", "wyroznik 3"],
+    "competitorWeaknesses": "co konkurencja robi zle lub czego nie robi — konkretna obserwacja"
   },
   "contentStrategy": {
     "pillars": [
-      { "name": "Filar 1", "description": "opis", "percentage": 30, "examples": ["przyklad 1", "przyklad 2"] },
-      { "name": "Filar 2", "description": "opis", "percentage": 25, "examples": ["przyklad 1", "przyklad 2"] },
-      { "name": "Filar 3", "description": "opis", "percentage": 25, "examples": ["przyklad 1", "przyklad 2"] },
-      { "name": "Filar 4", "description": "opis", "percentage": 20, "examples": ["przyklad 1", "przyklad 2"] }
+      {
+        "name": "Nazwa filaru 1",
+        "description": "szczegolowy opis o co chodzi w tym filarze i dlaczego jest wazny dla tej marki",
+        "percentage": 30,
+        "examples": ["konkretny przyklad posta lub serii", "przyklad 2", "przyklad 3"]
+      },
+      {
+        "name": "Nazwa filaru 2",
+        "description": "opis filaru 2",
+        "percentage": 25,
+        "examples": ["przyklad 1", "przyklad 2"]
+      },
+      {
+        "name": "Nazwa filaru 3",
+        "description": "opis filaru 3",
+        "percentage": 25,
+        "examples": ["przyklad 1", "przyklad 2"]
+      },
+      {
+        "name": "Nazwa filaru 4",
+        "description": "opis filaru 4",
+        "percentage": 20,
+        "examples": ["przyklad 1", "przyklad 2"]
+      }
     ],
-    "toneGuidelines": ["zasada tonu 1", "zasada 2", "zasada 3"],
-    "doList": ["co robic 1", "co robic 2", "co robic 3"],
-    "dontList": ["czego nie robic 1", "czego nie robic 2"]
+    "toneGuidelines": [
+      "konkretna zasada tonu i stylu komunikacji 1",
+      "zasada 2 — np. jak pisac o cenach",
+      "zasada 3 — np. jak reagowac na komentarze",
+      "zasada 4 — np. jak pisac CTA"
+    ],
+    "doList": [
+      "konkretna rzecz ktora marka powinna robic w social mediach 1",
+      "rzecz 2",
+      "rzecz 3",
+      "rzecz 4"
+    ],
+    "dontList": [
+      "czego absolutnie nie robic 1 z wyjasnieniem",
+      "czego nie robic 2",
+      "czego nie robic 3"
+    ]
   },
   "platformStrategy": [
     {
-      "platform": "facebook",
-      "role": "rola tej platformy w strategii",
-      "frequency": "X razy w tygodniu",
-      "bestFormats": ["format 1", "format 2"],
-      "bestTimes": "najlepsze godziny publikacji",
-      "kpi": "glowny KPI dla tej platformy",
-      "contentMix": "jak rozdzielic typy tresci"
+      "platform": "nazwa platformy",
+      "role": "rola tej platformy w calej strategii — co ma tu osiagac marka",
+      "frequency": "X postow tygodniowo + stories/reels etc",
+      "bestFormats": ["najlepszy format 1 dla tej platformy i branzy", "format 2", "format 3"],
+      "bestTimes": "najlepsze godziny i dni publikacji dla tej grupy docelowej",
+      "kpi": "glowny KPI do sledzenia na tej platformie",
+      "contentMix": "proporcje typow tresci np. 40% edu, 30% zaangazowanie, 30% promo"
     }
   ],
   "contentCalendar": {
-    "weeklyRhythm": "rytm tygodniowy (np. pon edukacja, sr zaangazowanie, pt sprzedaz)",
-    "monthlyThemes": ["temat miesiaca 1", "temat miesiaca 2", "temat miesiaca 3"],
-    "keyDates": ["wazna data 1", "wazna data 2"],
+    "weeklyRhythm": "szczegolowy rytm tygodniowy — co kiedy publikowac i dlaczego wlasnie wtedy",
+    "monthlyThemes": [
+      "temat przewodni miesiaca 1 z uzasadnieniem",
+      "temat miesiaca 2",
+      "temat miesiaca 3"
+    ],
+    "keyDates": [
+      "wazna data lub wydarzenie dla tej branzy 1",
+      "data 2",
+      "data 3"
+    ],
     "campaignIdeas": [
-      { "name": "Kampania 1", "concept": "krotki opis", "timing": "kiedy" },
-      { "name": "Kampania 2", "concept": "krotki opis", "timing": "kiedy" }
+      {
+        "name": "Nazwa kampanii 1",
+        "concept": "szczegolowy opis konceptu kampanii — o co chodzi, jaki mechanizm, jaki cel",
+        "timing": "kiedy realizowac i przez ile czasu"
+      },
+      {
+        "name": "Nazwa kampanii 2",
+        "concept": "opis kampanii 2",
+        "timing": "kiedy"
+      },
+      {
+        "name": "Nazwa kampanii 3",
+        "concept": "opis kampanii 3",
+        "timing": "kiedy"
+      }
     ]
   },
   "kpis": [
-    { "metric": "zasieg organiczny", "target": "X/mies.", "timeline": "3 miesiace", "howToMeasure": "opis" },
-    { "metric": "zaangazowanie", "target": "X%", "timeline": "3 miesiace", "howToMeasure": "opis" },
-    { "metric": "konwersje", "target": "X/mies.", "timeline": "3 miesiace", "howToMeasure": "opis" }
+    {
+      "metric": "Zasieg organiczny",
+      "target": "konkretna liczba np. 10000/mies",
+      "timeline": "${duration || '3 miesiace'}",
+      "howToMeasure": "gdzie i jak mierzyc ten KPI"
+    },
+    {
+      "metric": "Wskaznik zaangazowania",
+      "target": "np. 3-5% srednia",
+      "timeline": "${duration || '3 miesiace'}",
+      "howToMeasure": "jak mierzyc"
+    },
+    {
+      "metric": "Wzrost obserwujacych",
+      "target": "np. +500/mies",
+      "timeline": "${duration || '3 miesiace'}",
+      "howToMeasure": "jak mierzyc"
+    },
+    {
+      "metric": "Konwersje z social media",
+      "target": "np. 50 leadow/mies",
+      "timeline": "${duration || '3 miesiace'}",
+      "howToMeasure": "UTM links, Meta Pixel"
+    }
   ],
   "actionPlan": [
-    { "week": "Tydzien 1-2", "actions": ["akcja 1", "akcja 2", "akcja 3"] },
-    { "week": "Tydzien 3-4", "actions": ["akcja 1", "akcja 2"] },
-    { "week": "Miesiac 2", "actions": ["akcja 1", "akcja 2"] },
-    { "week": "Miesiac 3", "actions": ["akcja 1", "akcja 2"] }
+    {
+      "week": "Tydzien 1-2 — Fundament",
+      "actions": [
+        "konkretna akcja do wykonania 1",
+        "akcja 2",
+        "akcja 3",
+        "akcja 4"
+      ]
+    },
+    {
+      "week": "Tydzien 3-4 — Launch",
+      "actions": ["akcja 1", "akcja 2", "akcja 3"]
+    },
+    {
+      "week": "Miesiac 2 — Skalowanie",
+      "actions": ["akcja 1", "akcja 2", "akcja 3"]
+    },
+    {
+      "week": "Miesiac 3 — Optymalizacja",
+      "actions": ["akcja 1", "akcja 2", "akcja 3"]
+    }
   ],
   "budget": {
-    "organic": "plan dzialan organicznych",
-    "paid": "rekomendowany budzet reklamowy i jak go rozdzielic",
-    "tools": ["narzedzie 1", "narzedzie 2"]
+    "organic": "szczegolowy plan dzialan organicznych — co robic bez budzetu reklamowego",
+    "paid": "rekomendacja podzialu budzetu ${budget || 'dostepnego'} na reklamy — jakie kampanie, jakie formaty, jakie cele",
+    "tools": ["narzedzie 1 z opisem do czego", "narzedzie 2", "narzedzie 3", "narzedzie 4"]
   },
   "hashtags": {
     "brand": ["#brandowy1", "#brandowy2"],
-    "industry": ["#branzowy1", "#branzowy2", "#branzowy3"],
-    "campaign": "#hashtagKampanijny"
+    "industry": ["#branzowy1", "#branzowy2", "#branzowy3", "#branzowy4"],
+    "campaign": "#unikalnyHashtagKampanijny"
   }
 }`
 

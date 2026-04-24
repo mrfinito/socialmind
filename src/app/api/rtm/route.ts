@@ -26,76 +26,94 @@ export async function POST(req: NextRequest) {
   try {
     const { dna, industry, platforms, country } = await req.json()
     const today = new Date().toLocaleDateString('pl', { weekday:'long', year:'numeric', month:'long', day:'numeric' })
+    const brand = (dna?.brandName || 'Marka').replace(/['"]/g, '')
+    const ind = (industry || dna?.industry || 'ogolna').replace(/['"]/g, '')
+    const tone = (dna?.tone || 'profesjonalny').replace(/['"]/g, '')
+    const persona = (dna?.persona || '').replace(/['"]/g, '').slice(0, 150)
+    const usp = (dna?.usp || '').replace(/['"]/g, '').slice(0, 150)
 
-    const prompt = `Jestes ekspertem od Real Time Marketingu i content marketingu.
-Dzis jest: ${today}
+    const prompt = `Jestes ekspertem od Real Time Marketingu z 15-letnim doswiadczeniem w polskim rynku reklamowym.
 
-Marka: ${dna?.brandName || 'Marka'}
-Branza: ${industry || dna?.industry || 'ogolna'}
-Ton: ${dna?.tone || 'profesjonalny'}
-Platformy: ${(platforms || ['facebook','instagram']).join(', ')}
+Dzisiaj jest: ${today}
+Marka: ${brand}
+Branza: ${ind}
+Ton komunikacji: ${tone}
+Persona klienta: ${persona}
+USP marki: ${usp}
+Platformy: ${(platforms||['facebook','instagram']).join(', ')}
 Kraj: ${country || 'Polska'}
 
-Twoim zadaniem jest:
-1. Zidentyfikowac aktualne trendy, newsy i wydarzenia ktore sa dzisiaj istotne
-2. Znalezc kreatywne sposoby podpiecia sie komunikacyjnego dla marki z branzY ${industry || dna?.industry}
-3. Wygenerowac gotowe posty RTM
+TWOJE ZADANIE:
+1. Na podstawie swojej wiedzy o aktualnych wydarzeniach, trendach i swietach w Polsce i na swiecie (na dzien ${today}) zidentyfikuj 4-5 konkretnych okazji RTM
+2. Dla kazdej okazji oceń dopasowanie do marki ${brand} i wygeneruj gotowe, profesjonalne posty
+3. Pamietaj o specyfice polskiego rynku, kulturze i aktualnych dyskusjach spolecznych
 
-Pamietaj o:
-- Autentycznosci — marka musi sie naturalnie wpisywac w temat
-- Szybkosci — RTM dziala 24-48h po wydarzeniu
-- Kreatywnoci — szukaj nieoczywistych polaczen
-- Unikaniu kontrowersyjnych tematow politycznych jezeli nie pasuja do marki
+ZASADY RTM:
+- Post musi byc autentyczny — marka nie moze sie na sile podpinac pod temat
+- Unikaj tematow politycznych, tragicznych wypadkow, chorob
+- Szukaj pozytywnych, zabawnych lub inspirujacych polaczen
+- Hook musi zatrzymac scrollowanie w ciagu 2 sekund
+- Hashtagi musza byc aktualne i popularne
 
-Odpowiedz TYLKO czystym JSON:
+Odpowiedz TYLKO czystym JSON bez zadnego tekstu przed lub po:
+
 {
   "date": "${today}",
   "opportunities": [
     {
       "id": "opp1",
-      "title": "nazwa trendu/newsa",
-      "category": "sport|kultura|technologia|swieto|trend|news|meme",
+      "title": "konkretna nazwa wydarzenia/trendu/swieta",
+      "category": "sport|kultura|technologia|swieto|trend|news|meme|biznes",
       "relevance": "wysokie|srednie|niskie",
-      "why": "dlaczego ten temat pasuje do tej marki",
-      "risk": "ewentualne ryzyko komunikacyjne",
+      "why": "konkretne wyjasnienie dlaczego ten temat pasuje do marki ${brand} i jej grupy docelowej",
+      "risk": "ewentualne ryzyko wizerunkowe lub brak",
       "urgency": "dzisiaj|ten tydzien|ten miesiac",
       "posts": [
         {
           "platform": "facebook",
-          "angle": "jak sie podpiac — krotki opis konceptu",
-          "text": "gotowy tekst posta",
-          "hook": "pierwsze zdanie",
-          "hashtags": ["#rtm", "#trend"],
-          "emoji": true,
-          "imageIdea": "pomysl na grafike"
+          "angle": "kreatywny koncept podpiecia marki pod temat — co jest lacznikiem miedzy tematem a marka",
+          "text": "pelny, gotowy tekst posta napisany w tonie ${tone}. Minimum 150 slow. Naturalny, angażujacy, z CTA",
+          "hook": "pierwsze 1-2 zdania ktore zatrzymuja scrollowanie",
+          "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3", "#hashtag4", "#hashtag5"],
+          "imageIdea": "szczegolowy opis grafiki lub wideo ktore pasuje do posta"
         },
         {
           "platform": "instagram",
-          "angle": "jak sie podpiac",
-          "text": "gotowy tekst posta",
-          "hook": "pierwsze zdanie",
-          "hashtags": ["#rtm", "#trend"],
-          "emoji": true,
-          "imageIdea": "pomysl na grafike"
+          "angle": "koncept dla Instagram — bardziej wizualny i emocjonalny",
+          "text": "caption dla Instagram z emoji, storytellingiem, do 2200 znakow",
+          "hook": "pierwsze zdanie + emoji",
+          "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3", "#hashtag4", "#hashtag5", "#hashtag6", "#hashtag7"],
+          "imageIdea": "pomysl na grafike lub reel"
         }
       ]
     }
   ],
   "todayCalendar": [
-    { "name": "nazwa swieta/rocznicy/dnia", "type": "swieto|rocznica|dzien_tematyczny", "potential": "wysoki|sredni|niski", "idea": "krotki pomysl na post" }
+    {
+      "name": "nazwa swieta/rocznicy/dnia tematycznego",
+      "type": "swieto_panstwowe|dzien_tematyczny|rocznica|wydarzenie",
+      "potential": "wysoki|sredni|niski",
+      "idea": "konkretny pomysl jak marka ${brand} moze to wykorzystac"
+    }
   ],
   "weeklyTrends": [
-    { "trend": "nazwa trendu", "platform": "platforma gdzie trenduje", "relevance": "jak branza moze sie podpiac" }
+    {
+      "trend": "nazwa trendu lub hashtagu ktory trenduje",
+      "platform": "na jakiej platformie trenduje",
+      "relevance": "jak konkretnie branza ${ind} moze sie pod to podpiac"
+    }
   ],
-  "avoidTopics": ["temat do unikniecia 1", "temat do unikniecia 2"],
-  "rtmTips": ["wskazowka RTM 1", "wskazowka RTM 2", "wskazowka RTM 3"]
-}
-
-Generuj 4-5 okazji RTM. Baz sie na wiedzy o aktualnych trendach w Polsce i na swiecie dla dnia ${today}.`
+  "avoidTopics": [
+    "konkretny temat do unikniecia dzis z krotkim wyjasnieniem dlaczego"
+  ],
+  "rtmTips": [
+    "konkretna wskazowka RTM na dzis dostosowana do marki ${brand}"
+  ]
+}`
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 3000,
+      max_tokens: 4000,
       messages: [{ role: 'user', content: prompt }]
     })
 

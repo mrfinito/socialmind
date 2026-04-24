@@ -79,7 +79,7 @@ Odpowiedz TYLKO w formacie JSON (bez markdown, bez komentarzy):
     contentParts.push({ type: 'text', text: textPrompt })
 
     const response = await client.messages.create({
-      model: 'claude-opus-4-5',
+      model: 'claude-opus-4-6',
       max_tokens: 1500,
       messages: [{ role: 'user', content: contentParts }],
     })
