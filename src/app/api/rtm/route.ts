@@ -53,7 +53,7 @@ KONTEKST:
 - Platformy: ${plt}
 
 ZADANIE:
-Na podstawie Twojej wiedzy o aktualnych wydarzeniach, trendach, swietach i rocznicach w Polsce na dzien ${today}, zidentyfikuj 4-5 konkretnych okazji RTM i wygeneruj gotowe profesjonalne posty dla marki ${brand}.
+Na podstawie Twojej wiedzy o aktualnych wydarzeniach, trendach, swietach i rocznicach w Polsce na dzien ${today}, zidentyfikuj 3 najlepsze okazje RTM i wygeneruj gotowe profesjonalne posty dla marki ${brand}.
 
 Kazda okazja musi:
 - Naturalnie pasowac do marki i branzy ${ind}
@@ -76,7 +76,7 @@ ZWROC JSON:
         {
           "platform": "facebook",
           "angle": "Kreatywny koncept - jak marka sie podpina, co jest lacznikiem tematycznym",
-          "text": "Pelny profesjonalny tekst posta minimum 150 slow, w tonie ${tone}. Angażujacy, z CTA, wartosciowy dla odbiorcy. Musi byc gotowy do publikacji.",
+          "text": "Pelny profesjonalny tekst posta okolo 100-120 slow, w tonie ${tone}. Angażujacy, z CTA, wartosciowy dla odbiorcy. Musi byc gotowy do publikacji.",
           "hook": "Pierwsze 1-2 zdania ktore zatrzymaja scrollowanie",
           "hashtags": ["#RelevantTag1", "#RelevantTag2", "#RelevantTag3", "#RelevantTag4", "#RelevantTag5"],
           "imageIdea": "Szczegolowy opis grafiki lub wideo - co ma byc pokazane, jakie kolory, jaki mood"
@@ -117,7 +117,7 @@ ZWROC JSON:
   ]
 }
 
-Wygeneruj 4-5 okazji RTM.`
+Wygeneruj DOKLADNIE 3 okazje RTM - wysoka jakosc per okazja, nie ilosc.`
 
   const encoder = new TextEncoder()
 
