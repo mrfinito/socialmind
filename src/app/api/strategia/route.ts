@@ -12,76 +12,38 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { dna, competitors, targetAudience, goals, budget, duration, platforms } = await req.json()
-    const brand = String(dna?.brandName || 'Marka').slice(0, 50)
-    const ind = String(dna?.industry || 'ogolna').slice(0, 50)
-    const tone = String(dna?.tone || 'profesjonalny').slice(0, 80)
-    const usp = String(dna?.usp || '').slice(0, 80)
-    const persona = String(dna?.persona || targetAudience || '').slice(0, 80)
-    const plt = Array.isArray(platforms) ? platforms[0] : 'facebook'
-    const dur = String(duration || '3 miesiace')
-    const goalsStr = Array.isArray(goals) ? goals.join(', ') : String(goals || 'swiadomosc marki')
-    const pltsStr = Array.isArray(platforms) ? platforms.join(', ') : String(platforms || 'facebook, instagram')
+    const { dna, competitors, goals, budget, duration, platforms } = await req.json()
+    const brand = String(dna?.brandName || 'Marka').slice(0, 40)
+    const ind = String(dna?.industry || 'ogolna').slice(0, 40)
+    const tone = String(dna?.tone || 'profesjonalny').slice(0, 60)
+    const persona = String(dna?.persona || '').slice(0, 60)
+    const plt = Array.isArray(platforms) ? platforms.slice(0,2).join(', ') : 'facebook'
+    const dur = String(duration || '3 miesiace').slice(0, 20)
+    const goalsStr = Array.isArray(goals) ? goals.slice(0,3).join(', ') : 'swiadomosc marki'
 
-    const prompt = `Jestes strategiem social media. Stworz strategie komunikacji dla marki.
-
-Marka: ${brand}
-Branza: ${ind}
-Ton: ${tone}
-USP: ${usp}
-Persona: ${persona}
-Konkurenci: ${String(competitors || 'brak').slice(0, 80)}
-Cele: ${goalsStr}
-Budzet: ${String(budget || 'sredni')}
-Horyzont: ${dur}
-Platformy: ${pltsStr}
-
-Wygeneruj strategie jako JSON. Zacznij od { i skoncz na }. Nie dodawaj zadnego tekstu poza JSON.
-
-Wymagane pola:
-executiveSummary (string),
-brandPosition (obiekt z: currentState, desiredState, gap, uniqueVoice),
-audienceInsight (obiekt z: primarySegment, painPoints array, motivations array, contentConsumption, decisionFactors array),
-competitiveAnalysis (obiekt z: marketGaps array, differentiators array, competitorWeaknesses),
-contentStrategy (obiekt z: pillars array, toneGuidelines array, doList array, dontList array),
-platformStrategy (array obiektow z: platform, role, frequency, bestFormats array, bestTimes, kpi, contentMix),
-contentCalendar (obiekt z: weeklyRhythm, monthlyThemes array, keyDates array, campaignIdeas array),
-kpis (array obiektow z: metric, target, timeline, howToMeasure),
-actionPlan (array obiektow z: week, actions array),
-budget (obiekt z: organic, paid, tools array),
-hashtags (obiekt z: brand array, industry array, campaign)`
+    const prompt = `Strateg SM. Krótka strategia dla: ${brand}, ${ind}, ton: ${tone}, persona: ${persona}, konkurenci: ${String(competitors||'').slice(0,50)}, cele: ${goalsStr}, budzet: ${String(budget||'').slice(0,20)}, ${dur}, platformy: ${plt}.`
 
     const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4000,
+      max_tokens: 2000,
+      system: `Generujesz strategie social media jako JSON. Odpowiadasz TYLKO JSON zaczynajac od {.`,
       messages: [
         { role: 'user', content: prompt },
-        { role: 'assistant', content: '{' }
+        { role: 'assistant', content: '{"executiveSummary":"' }
       ]
     })
 
     const rawContent = response.content
       .map((b: { type: string; text?: string }) => b.type === 'text' ? b.text : '')
       .join('')
-    
-    // Prepend the { we used as prefill
-    const raw = '{' + rawContent
 
-    console.log('Strategia raw length:', raw.length, 'last50:', raw.slice(-50))
+    const raw = '{"executiveSummary":"' + rawContent
 
-    try {
-      const parsed = robustParse(raw)
-      return NextResponse.json({ ok: true, data: parsed })
-    } catch {
-      // Return raw for debugging
-      console.error('Parse failed length:', raw.length, 'Last100:', raw.slice(-100))
-      return NextResponse.json({
-        error: 'Blad parsowania',
-        debug: raw.slice(0, 300)
-      }, { status: 500 })
-    }
+    const parsed = robustParse(raw)
+    return NextResponse.json({ ok: true, data: parsed })
+
   } catch (err) {
-    console.error('Strategia error:', err)
+    console.error('Strategia error:', err instanceof Error ? err.message : err)
     return NextResponse.json({
       error: err instanceof Error ? err.message : 'Blad strategii'
     }, { status: 500 })
