@@ -53,7 +53,7 @@ hashtags (obiekt z: brand array, industry array, campaign)`
 
     const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2500,
+      max_tokens: 4000,
       messages: [
         { role: 'user', content: prompt },
         { role: 'assistant', content: '{' }
@@ -67,7 +67,7 @@ hashtags (obiekt z: brand array, industry array, campaign)`
     // Prepend the { we used as prefill
     const raw = '{' + rawContent
 
-    console.log('Strategia raw (first 100):', raw.slice(0, 100))
+    console.log('Strategia raw length:', raw.length, 'last50:', raw.slice(-50))
 
     try {
       const parsed = robustParse(raw)
