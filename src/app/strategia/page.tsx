@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import AppShell from '@/components/layout/AppShell'
 import { useStore } from '@/lib/store'
 import { PLATFORMS } from '@/lib/types'
@@ -53,9 +53,11 @@ export default function StrategiaPage() {
   function toggleGoal(g: string) { setGoals(p => p.includes(g) ? p.filter(x=>x!==g) : [...p,g]) }
 
   const [streamText, setStreamText] = useState('')
+  const [resultReady, setResultReady] = useState(false)
+  const resultRef = useRef<StrategyData|null>(null)
 
   async function generate() {
-    setLoading(true); setError(''); setStreamText('')
+    setLoading(true); setError(''); setStreamText(''); setResultReady(false); resultRef.current = null
     try {
       const res = await fetch('/api/strategia', {
         method: 'POST', headers: {'Content-Type':'application/json'},
@@ -97,15 +99,15 @@ export default function StrategiaPage() {
             throw new Error(parsedLine.error)
           }
           if (parsedLine.done && parsedLine.data) {
-            setData(parsedLine.data)
+            resultRef.current = parsedLine.data
             setStreamText('')
+            setResultReady(true)
             const entry = historySave<StrategyData>('strategia', projectId, {
               title: `Strategia — ${dna?.brandName || 'Marka'}`,
               subtitle: `${duration} · ${goals[0]}`,
               data: parsedLine.data,
             })
             setHistory(prev => [entry, ...prev].slice(0, 10))
-            setActiveTab('overview')
           }
         }
       }
@@ -254,6 +256,27 @@ export default function StrategiaPage() {
                 style={{background:'rgba(99,102,241,0.06)',border:'1px solid rgba(99,102,241,0.15)'}}>
                 <p className="text-[10px] text-indigo-400 mb-1">Generowanie w toku...</p>
                 <p className="truncate">{streamText}</p>
+              </div>
+            )}
+            {resultReady && !data && (
+              <div className="flex items-center gap-3 p-4 rounded-xl"
+                style={{background:'rgba(16,185,129,0.08)',border:'1px solid rgba(16,185,129,0.25)'}}>
+                <span className="text-2xl">✅</span>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-white">Strategia gotowa!</p>
+                  <p className="text-xs text-gray-500">Kliknij żeby zobaczyć wyniki</p>
+                </div>
+                <button
+                  onClick={() => {
+                    if (resultRef.current) {
+                      setData(resultRef.current)
+                      setActiveTab('overview')
+                      setResultReady(false)
+                    }
+                  }}
+                  className="btn-primary px-6">
+                  Pokaż strategię →
+                </button>
               </div>
             )}
             {error && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">{error}</p>}
