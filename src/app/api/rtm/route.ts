@@ -4,48 +4,120 @@ import { checkGenerationLimit } from '@/lib/checkLimits'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-export const maxDuration = 60
+export const maxDuration = 300
 
 export async function POST(req: NextRequest) {
   const limitCheck = await checkGenerationLimit()
   if (!limitCheck.allowed) {
-    return new Response(
-      JSON.stringify({ error: limitCheck.reason }),
-      { status: 429, headers: { 'Content-Type': 'application/json' } }
-    )
+    return new Response(JSON.stringify({ error: limitCheck.reason }), {
+      status: 429, headers: { 'Content-Type': 'application/json' }
+    })
   }
 
   const { dna, industry, platforms, country } = await req.json()
   const today = new Date().toLocaleDateString('pl', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   })
-  const brand = String(dna?.brandName || 'Marka').slice(0, 50)
-  const ind = String(industry || dna?.industry || 'ogolna').slice(0, 50)
-  const tone = String(dna?.tone || 'profesjonalny').slice(0, 80)
-  const persona = String(dna?.persona || '').slice(0, 80)
-  const plt = Array.isArray(platforms) ? platforms.slice(0, 2).join(', ') : 'facebook, instagram'
+  const brand = String(dna?.brandName || 'Marka')
+  const ind = String(industry || dna?.industry || 'ogolna')
+  const tone = String(dna?.tone || 'profesjonalny')
+  const persona = String(dna?.persona || 'brak')
+  const usp = String(dna?.usp || 'brak')
+  const plt = Array.isArray(platforms) ? platforms.join(', ') : 'facebook, instagram'
 
-  const prompt = `Ekspert RTM. Dzis: ${today}. Kraj: ${country || 'Polska'}.
-Marka: ${brand}. Branza: ${ind}. Ton: ${tone}. Odbiorcy: ${persona}. Platformy: ${plt}.
+  const systemPrompt = `Jestes ekspertem Real Time Marketingu z 10-letnim doswiadczeniem w polskim rynku reklamowym. Znasz polska kulture, aktualne trendy, swieta i rocznice, dyskusje spoleczne.
 
-Znajdz 4 aktualne okazje RTM na dzis i napisz gotowe posty.
-Odpowiedz TYLKO czystym JSON bez markdown:
+Twoja praca to:
+1. Wychwycanie aktualnych wydarzen, trendow, swiat i newsow ktore marka moze komunikacyjnie wykorzystac
+2. Tworzenie autentycznych, zabawnych lub inspirujacych polaczen miedzy tematem a marka
+3. Pisanie profesjonalnych postow social media ktore zatrzymuja scrollowanie
+
+ZASADY RTM:
+- Autentycznosc ponad wszystko - marka nie moze sie na sile podpinac
+- Unikaj tematow politycznych, tragicznych wypadkow, chorob
+- Szukaj pozytywnych, zabawnych polaczen
+- Hook musi zatrzymac scrollowanie w 2 sekundy
+- Hashtagi aktualne i popularne w PL
+
+Odpowiadasz WYLACZNIE poprawnym JSON bez zadnego tekstu przed ani po. Nie uzywaj markdown.`
+
+  const prompt = `REAL TIME MARKETING - ${today}
+
+KONTEKST:
+- Kraj: ${country || 'Polska'}
+- Marka: ${brand}
+- Branza: ${ind}
+- USP: ${usp}
+- Ton komunikacji: ${tone}
+- Persona klienta: ${persona}
+- Platformy: ${plt}
+
+ZADANIE:
+Na podstawie Twojej wiedzy o aktualnych wydarzeniach, trendach, swietach i rocznicach w Polsce na dzien ${today}, zidentyfikuj 4-5 konkretnych okazji RTM i wygeneruj gotowe profesjonalne posty dla marki ${brand}.
+
+Kazda okazja musi:
+- Naturalnie pasowac do marki i branzy ${ind}
+- Miec konkretne uzasadnienie dlaczego pasuje
+- Zawierac gotowe posty dla wszystkich platform (${plt}) - pelne teksty, nie szkice
+
+ZWROC JSON:
 {
   "date": "${today}",
   "opportunities": [
-    {"id":"o1","title":"nazwa","category":"swieto","relevance":"wysokie","why":"dlaczego pasuje do ${brand}","risk":"brak","urgency":"dzisiaj","posts":[
-      {"platform":"facebook","angle":"koncept","text":"pelny tekst posta min 3 zdania","hook":"pierwsze zdanie","hashtags":["#tag1","#tag2","#tag3"],"imageIdea":"pomysl na grafike"},
-      {"platform":"instagram","angle":"koncept IG","text":"caption z emoji","hook":"hook z emoji","hashtags":["#tag1","#tag2","#tag3","#tag4"],"imageIdea":"pomysl na reel"}
-    ]},
-    {"id":"o2","title":"nazwa 2","category":"trend","relevance":"srednie","why":"dlaczego","risk":"brak","urgency":"ten tydzien","posts":[{"platform":"facebook","angle":"koncept","text":"tekst","hook":"hook","hashtags":["#tag"],"imageIdea":"pomysl"}]},
-    {"id":"o3","title":"nazwa 3","category":"kultura","relevance":"srednie","why":"dlaczego","risk":"brak","urgency":"ten tydzien","posts":[{"platform":"facebook","angle":"koncept","text":"tekst","hook":"hook","hashtags":["#tag"],"imageIdea":"pomysl"}]},
-    {"id":"o4","title":"nazwa 4","category":"news","relevance":"niskie","why":"dlaczego","risk":"brak","urgency":"ten tydzien","posts":[{"platform":"facebook","angle":"koncept","text":"tekst","hook":"hook","hashtags":["#tag"],"imageIdea":"pomysl"}]}
+    {
+      "id": "o1",
+      "title": "Konkretna nazwa okazji (swieto/wydarzenie/trend)",
+      "category": "swieto|kultura|sport|technologia|trend|news|meme|biznes|rocznica",
+      "relevance": "wysokie|srednie|niskie",
+      "why": "Szczegolowe uzasadnienie dlaczego ta okazja pasuje do marki ${brand} i jej klientow - konkretne powiazanie tematyczne",
+      "risk": "Ewentualne ryzyko komunikacyjne lub 'brak'",
+      "urgency": "dzisiaj|ten tydzien|ten miesiac",
+      "posts": [
+        {
+          "platform": "facebook",
+          "angle": "Kreatywny koncept - jak marka sie podpina, co jest lacznikiem tematycznym",
+          "text": "Pelny profesjonalny tekst posta minimum 150 slow, w tonie ${tone}. Angażujacy, z CTA, wartosciowy dla odbiorcy. Musi byc gotowy do publikacji.",
+          "hook": "Pierwsze 1-2 zdania ktore zatrzymaja scrollowanie",
+          "hashtags": ["#RelevantTag1", "#RelevantTag2", "#RelevantTag3", "#RelevantTag4", "#RelevantTag5"],
+          "imageIdea": "Szczegolowy opis grafiki lub wideo - co ma byc pokazane, jakie kolory, jaki mood"
+        },
+        {
+          "platform": "instagram",
+          "angle": "Koncept dla IG - bardziej wizualny i emocjonalny",
+          "text": "Caption dla Instagram z emoji, storytellingiem, do 2200 znakow. Wartosciowy content.",
+          "hook": "Pierwsze zdanie + emoji - musi zatrzymac kciuk",
+          "hashtags": ["#Tag1", "#Tag2", "#Tag3", "#Tag4", "#Tag5", "#Tag6", "#Tag7"],
+          "imageIdea": "Pomysl na reel lub karuzele - szczegolowy opis"
+        }
+      ]
+    }
   ],
-  "todayCalendar":[{"name":"swieto","type":"swieto","potential":"wysoki","idea":"pomysl dla ${brand}"},{"name":"dzien tematyczny","type":"dzien_tematyczny","potential":"sredni","idea":"pomysl"}],
-  "weeklyTrends":[{"trend":"trend tygodnia","platform":"instagram","relevance":"jak ${brand} moze sie podpiac"},{"trend":"trend 2","platform":"tiktok","relevance":"jak sie podpiac"}],
-  "avoidTopics":["temat do unikniecia"],
-  "rtmTips":["wskazowka 1","wskazowka 2","wskazowka 3"]
-}`
+  "todayCalendar": [
+    {
+      "name": "Nazwa swieta/rocznicy/dnia tematycznego",
+      "type": "swieto_panstwowe|dzien_tematyczny|rocznica|wydarzenie",
+      "potential": "wysoki|sredni|niski",
+      "idea": "Konkretny pomysl jak marka ${brand} moze to wykorzystac w komunikacji"
+    }
+  ],
+  "weeklyTrends": [
+    {
+      "trend": "Nazwa trendu lub hashtagu ktory trenduje",
+      "platform": "Platforma gdzie trenduje",
+      "relevance": "Jak konkretnie branza ${ind} i marka ${brand} moze sie pod to podpiac"
+    }
+  ],
+  "avoidTopics": [
+    "Konkretny temat do unikniecia dzis z krotkim uzasadnieniem dlaczego"
+  ],
+  "rtmTips": [
+    "Konkretna wskazowka RTM na dzis dostosowana do marki ${brand}",
+    "wskazowka 2",
+    "wskazowka 3"
+  ]
+}
+
+Wygeneruj 4-5 okazji RTM.`
 
   const encoder = new TextEncoder()
 
@@ -62,9 +134,10 @@ Odpowiedz TYLKO czystym JSON bez markdown:
 
       try {
         const anthropicStream = await client.messages.create({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 3000,
+          model: 'claude-sonnet-4-6',
+          max_tokens: 8000,
           stream: true,
+          system: systemPrompt,
           messages: [{ role: 'user', content: prompt }]
         })
 
@@ -75,31 +148,29 @@ Odpowiedz TYLKO czystym JSON bez markdown:
           }
         }
 
-        console.log('RTM stream finished, length:', fullText.length)
+        console.log('RTM finished, length:', fullText.length)
         const start = fullText.indexOf('{')
         const end = fullText.lastIndexOf('}')
-        
+
         if (start === -1 || end === -1) {
           send({ error: 'Brak JSON w odpowiedzi AI' })
           sentDone = true
         } else {
           let clean = fullText.slice(start, end + 1)
-          
           let parsed = null
-          try {
-            parsed = JSON.parse(clean)
-          } catch {
+
+          try { parsed = JSON.parse(clean) } catch {}
+          if (!parsed) {
             clean = clean.replace(/"[^"\\]*(?:\\.[^"\\]*)*"/g, (m) =>
               m.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t')
             )
-            try {
-              parsed = JSON.parse(clean)
-            } catch {
-              clean = clean.replace(/,(\s*[}\]])/g, '$1')
-              try { parsed = JSON.parse(clean) } catch {}
-            }
+            try { parsed = JSON.parse(clean) } catch {}
           }
-          
+          if (!parsed) {
+            clean = clean.replace(/,(\s*[}\]])/g, '$1')
+            try { parsed = JSON.parse(clean) } catch {}
+          }
+
           if (parsed) {
             console.log('RTM parsed OK')
             send({ done: true, data: parsed })
@@ -110,15 +181,12 @@ Odpowiedz TYLKO czystym JSON bez markdown:
           sentDone = true
         }
       } catch (err) {
-        console.error('RTM stream error:', err)
-        send({ error: err instanceof Error ? err.message : 'Blad strumienia' })
+        console.error('RTM error:', err)
+        send({ error: err instanceof Error ? err.message : 'Blad' })
         sentDone = true
       }
-      
-      if (!sentDone) {
-        send({ error: 'Stream zakonczony bez wyniku' })
-      }
-      
+
+      if (!sentDone) send({ error: 'Stream bez wyniku' })
       controller.close()
     }
   })
