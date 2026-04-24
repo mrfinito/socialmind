@@ -39,7 +39,7 @@ export function usePermissions() {
           .from('profiles')
           .select('is_admin, plan')
           .eq('id', user.id)
-          .single()
+          .maybeSingle()
 
         if (profile?.is_admin) { setLoaded(true); return }
 
