@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { robustParse } from '@/lib/parseJSON'
 import { checkGenerationLimit } from '@/lib/checkLimits'
+import { robustParse } from '@/lib/parseJSON'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
 
 export async function POST(req: NextRequest) {
   const limitCheck = await checkGenerationLimit()
@@ -24,87 +23,33 @@ export async function POST(req: NextRequest) {
     const goalsStr = Array.isArray(goals) ? goals.join(', ') : String(goals || 'swiadomosc marki')
     const pltsStr = Array.isArray(platforms) ? platforms.join(', ') : String(platforms || 'facebook, instagram')
 
-    const prompt = `Jestes doswiadczonym strategiem social media.
-Stworz kompleksowa strategie komunikacji.
+    const prompt = `Jestes strategiem social media. Stworz strategie komunikacji dla marki.
 
-Dane:
-- Marka: ${brand}
-- Branza: ${ind}
-- Ton komunikacji: ${tone}
-- USP: ${usp}
-- Persona klienta: ${persona}
-- Konkurenci: ${String(competitors || 'brak').slice(0, 80)}
-- Cele: ${goalsStr}
-- Budzet: ${String(budget || 'sredni')}
-- Horyzont: ${dur}
-- Platformy: ${pltsStr}
+Marka: ${brand}
+Branza: ${ind}
+Ton: ${tone}
+USP: ${usp}
+Persona: ${persona}
+Konkurenci: ${String(competitors || 'brak').slice(0, 80)}
+Cele: ${goalsStr}
+Budzet: ${String(budget || 'sredni')}
+Horyzont: ${dur}
+Platformy: ${pltsStr}
 
-Odpowiedz TYLKO jako czysty JSON. Struktura:
-{
-  "executiveSummary": "podsumowanie 2-3 zdania",
-  "brandPosition": {
-    "currentState": "obecna pozycja",
-    "desiredState": "cel docelowy",
-    "gap": "co trzeba zrobic",
-    "uniqueVoice": "unikalny glos marki"
-  },
-  "audienceInsight": {
-    "primarySegment": "opis segmentu",
-    "painPoints": ["bol 1", "bol 2", "bol 3"],
-    "motivations": ["motywacja 1", "motywacja 2"],
-    "contentConsumption": "kiedy i jak konsumuje",
-    "decisionFactors": ["czynnik 1", "czynnik 2"]
-  },
-  "competitiveAnalysis": {
-    "marketGaps": ["luka 1", "luka 2", "luka 3"],
-    "differentiators": ["wyroznik 1", "wyroznik 2"],
-    "competitorWeaknesses": "co robi zle"
-  },
-  "contentStrategy": {
-    "pillars": [
-      {"name": "Filar 1", "description": "opis", "percentage": 30, "examples": ["przyklad 1", "przyklad 2"]},
-      {"name": "Filar 2", "description": "opis", "percentage": 25, "examples": ["przyklad"]},
-      {"name": "Filar 3", "description": "opis", "percentage": 25, "examples": ["przyklad"]},
-      {"name": "Filar 4", "description": "opis", "percentage": 20, "examples": ["przyklad"]}
-    ],
-    "toneGuidelines": ["zasada 1", "zasada 2", "zasada 3"],
-    "doList": ["robic 1", "robic 2", "robic 3"],
-    "dontList": ["nie robic 1", "nie robic 2"]
-  },
-  "platformStrategy": [
-    {"platform": "${plt}", "role": "rola", "frequency": "X razy tygodniowo", "bestFormats": ["format 1", "format 2"], "bestTimes": "godziny", "kpi": "KPI", "contentMix": "proporcje"}
-  ],
-  "contentCalendar": {
-    "weeklyRhythm": "rytm tygodniowy",
-    "monthlyThemes": ["temat 1", "temat 2", "temat 3"],
-    "keyDates": ["data 1", "data 2"],
-    "campaignIdeas": [
-      {"name": "Kampania 1", "concept": "opis", "timing": "kiedy"},
-      {"name": "Kampania 2", "concept": "opis", "timing": "kiedy"}
-    ]
-  },
-  "kpis": [
-    {"metric": "Zasieg", "target": "liczba/mies", "timeline": "${dur}", "howToMeasure": "narzedzie"},
-    {"metric": "Zaangazowanie", "target": "procent", "timeline": "${dur}", "howToMeasure": "jak"},
-    {"metric": "Obserwujacy", "target": "wzrost/mies", "timeline": "${dur}", "howToMeasure": "jak"}
-  ],
-  "actionPlan": [
-    {"week": "Tydzien 1-2", "actions": ["akcja 1", "akcja 2", "akcja 3"]},
-    {"week": "Tydzien 3-4", "actions": ["akcja 1", "akcja 2"]},
-    {"week": "Miesiac 2", "actions": ["akcja 1", "akcja 2"]},
-    {"week": "Miesiac 3", "actions": ["akcja 1", "akcja 2"]}
-  ],
-  "budget": {
-    "organic": "plan organiczny",
-    "paid": "podzial budzetu",
-    "tools": ["narzedzie 1", "narzedzie 2", "narzedzie 3"]
-  },
-  "hashtags": {
-    "brand": ["#brand1", "#brand2"],
-    "industry": ["#branza1", "#branza2", "#branza3"],
-    "campaign": "#hashtagKampanii"
-  }
-}`
+Wygeneruj strategie jako JSON. Zacznij od { i skoncz na }. Nie dodawaj zadnego tekstu poza JSON.
+
+Wymagane pola:
+executiveSummary (string),
+brandPosition (obiekt z: currentState, desiredState, gap, uniqueVoice),
+audienceInsight (obiekt z: primarySegment, painPoints array, motivations array, contentConsumption, decisionFactors array),
+competitiveAnalysis (obiekt z: marketGaps array, differentiators array, competitorWeaknesses),
+contentStrategy (obiekt z: pillars array, toneGuidelines array, doList array, dontList array),
+platformStrategy (array obiektow z: platform, role, frequency, bestFormats array, bestTimes, kpi, contentMix),
+contentCalendar (obiekt z: weeklyRhythm, monthlyThemes array, keyDates array, campaignIdeas array),
+kpis (array obiektow z: metric, target, timeline, howToMeasure),
+actionPlan (array obiektow z: week, actions array),
+budget (obiekt z: organic, paid, tools array),
+hashtags (obiekt z: brand array, industry array, campaign)`
 
     const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
@@ -116,8 +61,20 @@ Odpowiedz TYLKO jako czysty JSON. Struktura:
       .map((b: { type: string; text?: string }) => b.type === 'text' ? b.text : '')
       .join('')
 
-    const parsed = robustParse(raw)
-    return NextResponse.json({ ok: true, data: parsed })
+    // Log first 200 chars for debugging
+    console.log('Strategia raw response (first 200):', raw.slice(0, 200))
+
+    try {
+      const parsed = robustParse(raw)
+      return NextResponse.json({ ok: true, data: parsed })
+    } catch {
+      // Return raw for debugging
+      console.error('Parse failed. Full raw:', raw.slice(0, 500))
+      return NextResponse.json({
+        error: 'Blad parsowania',
+        debug: raw.slice(0, 300)
+      }, { status: 500 })
+    }
   } catch (err) {
     console.error('Strategia error:', err)
     return NextResponse.json({
