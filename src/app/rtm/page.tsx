@@ -109,6 +109,12 @@ export default function RtmPage() {
             setData(parsedLine.data)
             setStreamProgress('')
             if (parsedLine.data.opportunities?.length) setSelected(parsedLine.data.opportunities[0])
+            const entry = historySave<RtmData>('rtm', projectId, {
+              title: `RTM — ${dna?.brandName || 'Marka'}`,
+              subtitle: parsedLine.data.date || new Date().toLocaleDateString('pl'),
+              data: parsedLine.data,
+            })
+            setHistory(prev => [entry, ...prev].slice(0, 10))
           }
         }
       }
