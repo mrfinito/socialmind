@@ -251,7 +251,7 @@ ZWROC JSON O STRUKTURZE:
       try {
         const anthropicStream = await client.messages.create({
           model: 'claude-sonnet-4-6',
-          max_tokens: 8000,
+          max_tokens: 16000,
           stream: true,
           system: systemPrompt,
           messages: [{ role: 'user', content: prompt }]
@@ -277,14 +277,55 @@ ZWROC JSON O STRUKTURZE:
 
           try { parsed = JSON.parse(clean) } catch {}
           if (!parsed) {
-            clean = clean.replace(/"[^"\\]*(?:\\.[^"\\]*)*"/g, (m) =>
+            // Fix newlines in strings
+            const fixed = clean.replace(/"[^"\\]*(?:\\.[^"\\]*)*"/g, (m) =>
               m.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t')
             )
-            try { parsed = JSON.parse(clean) } catch {}
+            try { parsed = JSON.parse(fixed) } catch {}
+            if (!parsed) {
+              // Remove trailing commas
+              const noCommas = fixed.replace(/,(\s*[}\]])/g, '$1')
+              try { parsed = JSON.parse(noCommas) } catch {}
+            }
           }
+          
+          // If still not parsed, try to repair truncated JSON
           if (!parsed) {
-            clean = clean.replace(/,(\s*[}\]])/g, '$1')
-            try { parsed = JSON.parse(clean) } catch {}
+            try {
+              // Try to find last complete structure and close remaining braces
+              let repaired = fullText.slice(start)
+              // Remove trailing incomplete content after last } or ]
+              const lastValidEnd = Math.max(
+                repaired.lastIndexOf('}'),
+                repaired.lastIndexOf(']')
+              )
+              if (lastValidEnd > 0) {
+                repaired = repaired.slice(0, lastValidEnd + 1)
+              }
+              // Count unclosed braces and brackets
+              let openBraces = 0, openBrackets = 0, inString = false, escape = false
+              for (let i = 0; i < repaired.length; i++) {
+                const ch = repaired[i]
+                if (escape) { escape = false; continue }
+                if (ch === '\\') { escape = true; continue }
+                if (ch === '"') { inString = !inString; continue }
+                if (inString) continue
+                if (ch === '{') openBraces++
+                if (ch === '}') openBraces--
+                if (ch === '[') openBrackets++
+                if (ch === ']') openBrackets--
+              }
+              // Close unclosed structures
+              while (openBrackets > 0) { repaired += ']'; openBrackets-- }
+              while (openBraces > 0) { repaired += '}'; openBraces-- }
+              // Also fix newlines
+              repaired = repaired.replace(/"[^"\\]*(?:\\.[^"\\]*)*"/g, (m) =>
+                m.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t')
+              )
+              repaired = repaired.replace(/,(\s*[}\]])/g, '$1')
+              parsed = JSON.parse(repaired)
+              console.log('Parsed truncated JSON via repair')
+            } catch {}
           }
 
           if (parsed) {
