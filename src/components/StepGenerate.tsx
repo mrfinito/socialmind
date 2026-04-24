@@ -15,6 +15,8 @@ interface Props {
   tones: string[]
   onComplete: (content: GeneratedContent) => void
   onBack: () => void
+  initialContent?: GeneratedContent | null
+  onContentChange?: (c: GeneratedContent | null) => void
 }
 
 type ImageProvider = 'gemini' | 'dalle'
@@ -239,15 +241,20 @@ function PostCard({
   )
 }
 
-export default function StepGenerate({ dna, platforms, topic, goals, tones, onComplete, onBack }: Props) {
-  const [content, setContent] = useState<GeneratedContent | null>(null)
+export default function StepGenerate({ dna, platforms, topic, goals, tones, onComplete, onBack, initialContent, onContentChange }: Props) {
+  const [content, setContent] = useState<GeneratedContent | null>(initialContent || null)
   const [loading, setLoading] = useState(false)
   const [generatingImages, setGeneratingImages] = useState<Record<string, boolean>>({})
   const [error, setError] = useState('')
   const [imageProvider, setImageProvider] = useState<ImageProvider>('gemini')
   const [branding, setBranding] = useState<BrandingOptions>(DEFAULT_BRANDING)
   const [editingPlatform, setEditingPlatform] = useState<Platform | null>(null)
-  const hasGenerated = useRef(false)
+  const hasGenerated = useRef(!!initialContent)
+
+  // Sync content changes back to parent
+  useEffect(() => {
+    if (onContentChange) onContentChange(content)
+  }, [content, onContentChange])
 
   useEffect(() => {
     if (!hasGenerated.current) {

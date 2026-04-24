@@ -84,7 +84,7 @@ export default function GenerujPage() {
           {step === 0 && <StepOnboarding onComplete={handleDNA} />}
           {step === 1 && dna && <StepBrandDNA dna={dna} tones={tones} onTonesChange={setTones} onDnaChange={d => { setDna(d); saveDNA(d) }} onBack={() => setStep(0)} onNext={() => setStep(2)} />}
           {step === 2 && <StepPlatforms selectedPlatforms={selectedPlatforms} onPlatformsChange={handlePlatforms} topic={topic} onTopicChange={setTopic} goals={goals} onGoalsChange={setGoals} onBack={() => setStep(1)} onNext={() => setStep(3)} />}
-          {step === 3 && dna && <StepGenerate dna={dna} platforms={selectedPlatforms} topic={topic} goals={goals} tones={tones} onComplete={handleComplete} onBack={() => setStep(2)} />}
+          {step === 3 && dna && <StepGenerate dna={dna} platforms={selectedPlatforms} topic={topic} goals={goals} tones={tones} onComplete={handleComplete} onBack={() => setStep(2)} initialContent={content} onContentChange={setContent} />}
           {step === 4 && content && <StepExport content={content} platforms={selectedPlatforms} onBack={() => setStep(3)} onNewProject={() => { setStep(2); setContent(null); setTopic('') }} />}
         </div>
       </div>
