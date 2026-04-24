@@ -79,12 +79,16 @@ Odpowiedz TYLKO jako JSON. Struktura:
     const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 2500,
-      messages: [{ role: 'user', content: prompt }]
+      messages: [
+        { role: 'user', content: prompt },
+        { role: 'assistant', content: '{' }
+      ]
     })
 
-    const raw = response.content
+    const rawContent = response.content
       .map((b: { type: string; text?: string }) => b.type === 'text' ? b.text : '')
       .join('')
+    const raw = '{' + rawContent
 
     const parsed = robustParse(raw)
     return NextResponse.json({ ok: true, data: parsed })
