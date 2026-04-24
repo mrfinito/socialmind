@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import Anthropic from '@anthropic-ai/sdk'
 
+export const maxDuration = 120
+
 const ASPECT_MAP: Record<string, string> = {
   facebook: '16:9',
   instagram: '1:1',
