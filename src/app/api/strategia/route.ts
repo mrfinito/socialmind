@@ -69,7 +69,7 @@ hashtags (obiekt z: brand array, industry array, campaign)`
       return NextResponse.json({ ok: true, data: parsed })
     } catch {
       // Return raw for debugging
-      console.error('Parse failed. Full raw:', raw.slice(0, 500))
+      console.error('Parse failed length:', raw.length, 'Last100:', raw.slice(-100))
       return NextResponse.json({
         error: 'Blad parsowania',
         debug: raw.slice(0, 300)
