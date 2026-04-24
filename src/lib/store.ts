@@ -52,7 +52,7 @@ export function useStore() {
 
       // Load user permissions/limits
       const { data: userPerms } = await supabase
-        .from('user_permissions').select('max_projects,max_posts_per_month').eq('id', user.id).single()
+        .from('user_permissions').select('max_projects,max_posts_per_month').eq('user_id', user.id).maybeSingle()
 
       const mappedProjects: Project[] = (projects || []).map(p => ({
         id: p.id, name: p.name, client: p.client,
