@@ -78,19 +78,23 @@ export default function RtmPage() {
           if (!line.startsWith('data: ')) continue
           const jsonStr = line.slice(6).trim()
           if (!jsonStr) continue
+          let parsedLine: {chunk?:string;done?:boolean;data?:RtmData;error?:string} | null = null
           try {
-            const parsed = JSON.parse(jsonStr)
-            if (parsed.chunk) {
-              setStreamProgress('Skanuje trendy i newsy...')
-            }
-            if (parsed.done && parsed.data) {
-              setData(parsed.data)
-              setStreamProgress('')
-              if (parsed.data.opportunities?.length) setSelected(parsed.data.opportunities[0])
-            }
-            if (parsed.error) throw new Error(parsed.error)
+            parsedLine = JSON.parse(jsonStr)
           } catch {
-            // ignore partial chunks
+            continue
+          }
+          if (!parsedLine) continue
+          if (parsedLine.chunk) {
+            setStreamProgress('Skanuje trendy i newsy...')
+          }
+          if (parsedLine.error) {
+            throw new Error(parsedLine.error)
+          }
+          if (parsedLine.done && parsedLine.data) {
+            setData(parsedLine.data)
+            setStreamProgress('')
+            if (parsedLine.data.opportunities?.length) setSelected(parsedLine.data.opportunities[0])
           }
         }
       }

@@ -83,25 +83,29 @@ export default function StrategiaPage() {
           if (!line.startsWith('data: ')) continue
           const jsonStr = line.slice(6).trim()
           if (!jsonStr) continue
+          let parsedLine: {chunk?:string;done?:boolean;data?:StrategyData;error?:string} | null = null
           try {
-            const parsed = JSON.parse(jsonStr)
-            if (parsed.chunk) {
-              setStreamText(prev => (prev + parsed.chunk).slice(-300))
-            }
-            if (parsed.done && parsed.data) {
-              setData(parsed.data)
-              setStreamText('')
-              const entry = historySave<StrategyData>('strategia', projectId, {
-                title: `Strategia — ${dna?.brandName || 'Marka'}`,
-                subtitle: `${duration} · ${goals[0]}`,
-                data: parsed.data,
-              })
-              setHistory(prev => [entry, ...prev].slice(0, 10))
-              setActiveTab('overview')
-            }
-            if (parsed.error) throw new Error(parsed.error)
-          } catch (parseErr) {
-            // ignore partial chunks
+            parsedLine = JSON.parse(jsonStr)
+          } catch {
+            continue // ignore partial JSON chunks
+          }
+          if (!parsedLine) continue
+          if (parsedLine.chunk) {
+            setStreamText(prev => (prev + parsedLine!.chunk).slice(-300))
+          }
+          if (parsedLine.error) {
+            throw new Error(parsedLine.error)
+          }
+          if (parsedLine.done && parsedLine.data) {
+            setData(parsedLine.data)
+            setStreamText('')
+            const entry = historySave<StrategyData>('strategia', projectId, {
+              title: `Strategia — ${dna?.brandName || 'Marka'}`,
+              subtitle: `${duration} · ${goals[0]}`,
+              data: parsedLine.data,
+            })
+            setHistory(prev => [entry, ...prev].slice(0, 10))
+            setActiveTab('overview')
           }
         }
       }
