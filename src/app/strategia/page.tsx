@@ -79,9 +79,9 @@ export default function StrategiaPage() {
     if (!data) return
     let txt = `STRATEGIA KOMUNIKACJI — ${dna?.brandName || 'Marka'}\n${'═'.repeat(60)}\n\n`
     txt += `PODSUMOWANIE\n${data.executiveSummary}\n\n`
-    txt += `POZYCJA MARKI\nObecna: ${data.brandPosition.currentState}\nDocelowa: ${data.brandPosition.desiredState}\nUnikalny głos: ${data.brandPosition.uniqueVoice}\n\n`
-    txt += `FILARY CONTENTU\n${data.contentStrategy.pillars.map(p=>`${p.name} (${p.percentage}%): ${p.description}`).join('\n')}\n\n`
-    txt += `PLAN DZIAŁAŃ\n${data.actionPlan.map(a=>`${a.week}:\n${a.actions.map(x=>`  · ${x}`).join('\n')}`).join('\n\n')}\n`
+    txt += `POZYCJA MARKI\nObecna: ${data.brandPosition?.currentState}\nDocelowa: ${data.brandPosition?.desiredState}\nUnikalny głos: ${data.brandPosition?.uniqueVoice}\n\n`
+    txt += `FILARY CONTENTU\n${(data.contentStrategy?.pillars||[]).map(p=>`${p.name} (${p.percentage}%): ${p.description}`).join('\n')}\n\n`
+    txt += `PLAN DZIAŁAŃ\n${(data.actionPlan||[]).map(a=>`${a.week}:\n${a.actions.map(x=>`  · ${x}`).join('\n')}`).join('\n\n')}\n`
     const a = document.createElement('a')
     a.href = URL.createObjectURL(new Blob([txt],{type:'text/plain;charset=utf-8'}))
     a.download = `strategia_${dna?.brandName||'marka'}.txt`
@@ -254,26 +254,26 @@ export default function StrategiaPage() {
                   <div className="card">
                     <h3 className="text-sm font-semibold text-white mb-4">📍 Pozycja marki</h3>
                     <div className="space-y-3">
-                      <div><p className="text-[10px] text-gray-600 mb-1">Obecna sytuacja</p><p className="text-xs text-gray-400">{data.brandPosition.currentState}</p></div>
-                      <div><p className="text-[10px] text-gray-600 mb-1">Cel za {duration}</p><p className="text-xs text-emerald-300">{data.brandPosition.desiredState}</p></div>
-                      <div><p className="text-[10px] text-gray-600 mb-1">Co trzeba zrobić</p><p className="text-xs text-gray-400">{data.brandPosition.gap}</p></div>
+                      <div><p className="text-[10px] text-gray-600 mb-1">Obecna sytuacja</p><p className="text-xs text-gray-400">{data.brandPosition?.currentState}</p></div>
+                      <div><p className="text-[10px] text-gray-600 mb-1">Cel za {duration}</p><p className="text-xs text-emerald-300">{data.brandPosition?.desiredState}</p></div>
+                      <div><p className="text-[10px] text-gray-600 mb-1">Co trzeba zrobić</p><p className="text-xs text-gray-400">{data.brandPosition?.gap}</p></div>
                       <div className="p-3 rounded-xl" style={{background:'rgba(99,102,241,0.08)',border:'1px solid rgba(99,102,241,0.15)'}}>
                         <p className="text-[10px] text-indigo-400 mb-1">Unikalny głos marki</p>
-                        <p className="text-xs text-indigo-200">{data.brandPosition.uniqueVoice}</p>
+                        <p className="text-xs text-indigo-200">{data.brandPosition?.uniqueVoice}</p>
                       </div>
                     </div>
                   </div>
                   <div className="card">
                     <h3 className="text-sm font-semibold text-white mb-4">👥 Insight o odbiorcach</h3>
                     <div className="space-y-3">
-                      <div><p className="text-[10px] text-gray-600 mb-1">Główny segment</p><p className="text-xs font-medium text-white">{data.audienceInsight.primarySegment}</p></div>
+                      <div><p className="text-[10px] text-gray-600 mb-1">Główny segment</p><p className="text-xs font-medium text-white">{data.audienceInsight?.primarySegment}</p></div>
                       <div>
                         <p className="text-[10px] text-gray-600 mb-1.5">Bóle i potrzeby</p>
-                        {data.audienceInsight.painPoints.map((p,i) => <p key={i} className="text-xs text-gray-400 flex gap-1.5 mb-1"><span className="text-red-400">−</span>{p}</p>)}
+                        {(data.audienceInsight?.painPoints||[]).map((p,i) => <p key={i} className="text-xs text-gray-400 flex gap-1.5 mb-1"><span className="text-red-400">−</span>{p}</p>)}
                       </div>
                       <div>
                         <p className="text-[10px] text-gray-600 mb-1.5">Motywacje</p>
-                        {data.audienceInsight.motivations.map((m,i) => <p key={i} className="text-xs text-gray-400 flex gap-1.5 mb-1"><span className="text-emerald-400">+</span>{m}</p>)}
+                        {(data.audienceInsight?.motivations||[]).map((m,i) => <p key={i} className="text-xs text-gray-400 flex gap-1.5 mb-1"><span className="text-emerald-400">+</span>{m}</p>)}
                       </div>
                     </div>
                   </div>
@@ -283,15 +283,15 @@ export default function StrategiaPage() {
                   <div className="grid grid-cols-3 gap-4">
                     <div>
                       <p className="text-[10px] text-gray-600 mb-2">Luki rynkowe</p>
-                      {(data.competitiveAnalysis.marketGaps||[]).map((g,i) => <p key={i} className="text-xs text-indigo-300 flex gap-1.5 mb-1.5"><span>→</span>{g}</p>)}
+                      {(data.competitiveAnalysis?.marketGaps||[]).map((g,i) => <p key={i} className="text-xs text-indigo-300 flex gap-1.5 mb-1.5"><span>→</span>{g}</p>)}
                     </div>
                     <div>
                       <p className="text-[10px] text-gray-600 mb-2">Nasze wyróżniki</p>
-                      {(data.competitiveAnalysis.differentiators||[]).map((d,i) => <p key={i} className="text-xs text-emerald-400 flex gap-1.5 mb-1.5"><span>✓</span>{d}</p>)}
+                      {(data.competitiveAnalysis?.differentiators||[]).map((d,i) => <p key={i} className="text-xs text-emerald-400 flex gap-1.5 mb-1.5"><span>✓</span>{d}</p>)}
                     </div>
                     <div>
                       <p className="text-[10px] text-gray-600 mb-2">Słabości konkurencji</p>
-                      <p className="text-xs text-gray-400">{data.competitiveAnalysis.competitorWeaknesses}</p>
+                      <p className="text-xs text-gray-400">{data.competitiveAnalysis?.competitorWeaknesses}</p>
                     </div>
                   </div>
                 </div>
@@ -315,7 +315,7 @@ export default function StrategiaPage() {
             {activeTab==='content' && (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  {(data.contentStrategy.pillars||[]).map((p,i) => (
+                  {(data.contentStrategy?.pillars||[]).map((p,i) => (
                     <div key={i} className="card">
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-sm font-semibold text-white">{p.name}</p>
@@ -339,15 +339,15 @@ export default function StrategiaPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="card">
                     <h3 className="text-sm font-semibold text-white mb-3">✅ Co robić</h3>
-                    {(data.contentStrategy.doList||[]).map((d,i) => <p key={i} className="text-xs text-emerald-400 flex gap-1.5 mb-2"><span>✓</span>{d}</p>)}
+                    {(data.contentStrategy?.doList||[]).map((d,i) => <p key={i} className="text-xs text-emerald-400 flex gap-1.5 mb-2"><span>✓</span>{d}</p>)}
                     <div className="pt-3 border-t border-white/6 mt-2">
                       <h4 className="text-xs font-semibold text-gray-500 mb-2">Zasady tonu</h4>
-                      {(data.contentStrategy.toneGuidelines||[]).map((t,i) => <p key={i} className="text-xs text-gray-400 flex gap-1.5 mb-1.5"><span className="text-indigo-400">·</span>{t}</p>)}
+                      {(data.contentStrategy?.toneGuidelines||[]).map((t,i) => <p key={i} className="text-xs text-gray-400 flex gap-1.5 mb-1.5"><span className="text-indigo-400">·</span>{t}</p>)}
                     </div>
                   </div>
                   <div className="card">
                     <h3 className="text-sm font-semibold text-white mb-3">❌ Czego nie robić</h3>
-                    {(data.contentStrategy.dontList||[]).map((d,i) => <p key={i} className="text-xs text-red-400 flex gap-1.5 mb-2"><span>✕</span>{d}</p>)}
+                    {(data.contentStrategy?.dontList||[]).map((d,i) => <p key={i} className="text-xs text-red-400 flex gap-1.5 mb-2"><span>✕</span>{d}</p>)}
                     <div className="pt-3 border-t border-white/6 mt-2">
                       <h4 className="text-xs font-semibold text-gray-500 mb-2">Hashtagi</h4>
                       <div className="flex flex-wrap gap-1.5">
