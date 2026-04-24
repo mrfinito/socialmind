@@ -217,9 +217,24 @@ Wygeneruj DOKLADNIE 3 okazje RTM - wysoka jakosc per okazja, nie ilosc.`
             send({ done: true, data: parsed })
           } else {
             console.error('RTM parse failed. Raw len:', fullText.length)
-            console.error('First 500:', fullText.slice(0, 500))
-            console.error('Last 500:', fullText.slice(-500))
-            send({ error: 'Nie mozna przetworzyc JSON', debug: { len: fullText.length, first: fullText.slice(0, 200), last: fullText.slice(-200) } })
+            console.error('Clean extracted:', clean.slice(0, 1000))
+            console.error('Clean end:', clean.slice(-500))
+            // Try one more time - find actual JSON error position
+            try {
+              JSON.parse(clean)
+            } catch (e) {
+              console.error('Parse error:', e instanceof Error ? e.message : e)
+              const msg = e instanceof Error ? e.message : ''
+              const match = msg.match(/position (\d+)/)
+              if (match) {
+                const pos = parseInt(match[1])
+                console.error('Error context:', clean.slice(Math.max(0, pos-100), pos+100))
+                send({ error: 'JSON error: ' + msg, debug: { errorPos: pos, context: clean.slice(Math.max(0, pos-100), pos+100) } })
+                sentDone = true
+                return
+              }
+            }
+            send({ error: 'Nie mozna przetworzyc JSON', debug: { len: fullText.length } })
           }
           sentDone = true
         }
