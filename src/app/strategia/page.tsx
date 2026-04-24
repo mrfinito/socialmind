@@ -72,22 +72,25 @@ export default function StrategiaPage() {
       const decoder = new TextDecoder()
       if (!reader) throw new Error('Brak streamu')
 
-      let accumulated = ''
+      let buffer = ''
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
-        const chunk = decoder.decode(value)
-        const lines = chunk.split('\n')
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue
+          const jsonStr = line.slice(6).trim()
+          if (!jsonStr) continue
           try {
-            const parsed = JSON.parse(line.slice(6))
+            const parsed = JSON.parse(jsonStr)
             if (parsed.chunk) {
-              accumulated += parsed.chunk
-              setStreamText(accumulated.slice(-200))
+              setStreamText(prev => (prev + parsed.chunk).slice(-300))
             }
             if (parsed.done && parsed.data) {
               setData(parsed.data)
+              setStreamText('')
               const entry = historySave<StrategyData>('strategia', projectId, {
                 title: `Strategia — ${dna?.brandName || 'Marka'}`,
                 subtitle: `${duration} · ${goals[0]}`,
@@ -97,7 +100,9 @@ export default function StrategiaPage() {
               setActiveTab('overview')
             }
             if (parsed.error) throw new Error(parsed.error)
-          } catch {}
+          } catch (parseErr) {
+            // ignore partial chunks
+          }
         }
       }
     } catch(e:unknown) { setError(e instanceof Error ? e.message : 'Błąd') }

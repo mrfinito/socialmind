@@ -67,26 +67,31 @@ export default function RtmPage() {
       const decoder = new TextDecoder()
       if (!reader) throw new Error('Brak streamu')
 
-      let accumulated = ''
+      let buffer = ''
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
-        const chunk = decoder.decode(value)
-        const lines = chunk.split('\n')
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue
+          const jsonStr = line.slice(6).trim()
+          if (!jsonStr) continue
           try {
-            const parsed = JSON.parse(line.slice(6))
+            const parsed = JSON.parse(jsonStr)
             if (parsed.chunk) {
-              accumulated += parsed.chunk
               setStreamProgress('Skanuje trendy i newsy...')
             }
             if (parsed.done && parsed.data) {
               setData(parsed.data)
+              setStreamProgress('')
               if (parsed.data.opportunities?.length) setSelected(parsed.data.opportunities[0])
             }
             if (parsed.error) throw new Error(parsed.error)
-          } catch {}
+          } catch {
+            // ignore partial chunks
+          }
         }
       }
     } catch(e:unknown) { setError(e instanceof Error ? e.message : 'Błąd') }
