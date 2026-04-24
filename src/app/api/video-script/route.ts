@@ -1,27 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkGenerationLimit } from '@/lib/checkLimits'
 import Anthropic from '@anthropic-ai/sdk'
+import { robustParse } from '@/lib/parseJSON'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export const maxDuration = 60
 
-function robustParse(raw: string) {
-  let clean = raw.replace(/```json\n?|```\n?/g, '').trim()
-  try { return JSON.parse(clean) } catch {}
-  const s = clean.indexOf('{'), e = clean.lastIndexOf('}')
-  if (s !== -1 && e !== -1) {
-    clean = clean.slice(s, e + 1)
-    try { return JSON.parse(clean) } catch {}
-    clean = clean
-      .replace(/[\u2018\u2019]/g, "'")
-      .replace(/[\u201C\u201D]/g, '"')
-      .replace(/,(\s*[}\]])/g, '$1')
-    try { return JSON.parse(clean) } catch {}
-  }
-  // Last resort — return minimal valid structure
-  return null
-}
 
 export async function POST(req: NextRequest) {
   try {
