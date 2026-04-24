@@ -1,4 +1,4 @@
-import { createServerSupabaseClient, createAdminClient } from './supabase-server'
+import { createServerSupabaseClient } from './supabase-server'
 
 interface LimitCheck {
   allowed: boolean
@@ -13,24 +13,40 @@ export async function checkGenerationLimit(): Promise<LimitCheck> {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { allowed: false, reason: 'Nie jesteś zalogowany' }
 
-    // Admins always allowed
+    // Check if admin
     const { data: profile } = await supabase
-      .from('profiles').select('is_admin, plan').eq('id', user.id).single()
+      .from('profiles')
+      .select('is_admin, plan')
+      .eq('id', user.id)
+      .single()
+
     if (profile?.is_admin) return { allowed: true }
 
-    // Get permissions
-    const { data: perms } = await supabase
-      .from('user_permissions').select('max_posts_per_month').eq('user_id', user.id).single()
-
-    // Default limits per plan if no custom permissions set
-    const planLimits: Record<string, number> = {
-      free: 10, pro: 200, agency: 9999
+    // Get limit from user_permissions (ignore errors)
+    let limit = 50
+    try {
+      const { data: perms } = await supabase
+        .from('user_permissions')
+        .select('max_posts_per_month')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      
+      if (perms?.max_posts_per_month) {
+        limit = perms.max_posts_per_month
+      } else {
+        const planLimits: Record<string, number> = { free: 10, pro: 200, agency: 9999 }
+        limit = planLimits[profile?.plan || 'free'] ?? 50
+      }
+    } catch {
+      // If user_permissions table doesn't exist or errors - use plan default
+      const planLimits: Record<string, number> = { free: 10, pro: 200, agency: 9999 }
+      limit = planLimits[profile?.plan || 'free'] ?? 50
     }
-    const limit = perms?.max_posts_per_month ?? planLimits[profile?.plan || 'free'] ?? 10
 
     // Count posts this month
     const monthStart = new Date()
-    monthStart.setDate(1); monthStart.setHours(0,0,0,0)
+    monthStart.setDate(1)
+    monthStart.setHours(0, 0, 0, 0)
 
     const { count } = await supabase
       .from('drafts')
@@ -39,11 +55,10 @@ export async function checkGenerationLimit(): Promise<LimitCheck> {
       .gte('created_at', monthStart.toISOString())
 
     const used = count || 0
-
     if (used >= limit) {
       return {
         allowed: false,
-        reason: `Osiągnąłeś limit ${limit} postów w tym miesiącu. Limit odnowi się 1. dnia następnego miesiąca.`,
+        reason: `Osiągnąłeś limit ${limit} postów w tym miesiącu.`,
         used,
         limit,
       }
@@ -52,7 +67,7 @@ export async function checkGenerationLimit(): Promise<LimitCheck> {
     return { allowed: true, used, limit }
   } catch (err) {
     console.error('checkLimits error:', err)
-    return { allowed: true } // fail open — don't block on errors
+    return { allowed: true } // fail open
   }
 }
 
@@ -66,25 +81,27 @@ export async function checkProjectLimit(): Promise<LimitCheck> {
       .from('profiles').select('is_admin, plan').eq('id', user.id).single()
     if (profile?.is_admin) return { allowed: true }
 
-    const { data: perms } = await supabase
-      .from('user_permissions').select('max_projects').eq('user_id', user.id).single()
-
-    const planLimits: Record<string, number> = { free: 1, pro: 10, agency: 999 }
-    const limit = perms?.max_projects ?? planLimits[profile?.plan || 'free'] ?? 1
+    let limit = 3
+    try {
+      const { data: perms } = await supabase
+        .from('user_permissions').select('max_projects').eq('user_id', user.id).maybeSingle()
+      if (perms?.max_projects) {
+        limit = perms.max_projects
+      } else {
+        const planLimits: Record<string, number> = { free: 1, pro: 10, agency: 999 }
+        limit = planLimits[profile?.plan || 'free'] ?? 3
+      }
+    } catch {
+      const planLimits: Record<string, number> = { free: 1, pro: 10, agency: 999 }
+      limit = planLimits[profile?.plan || 'free'] ?? 3
+    }
 
     const { count } = await supabase
-      .from('projects')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
+      .from('projects').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
 
     const used = count || 0
     if (used >= limit) {
-      return {
-        allowed: false,
-        reason: `Osiągnąłeś limit ${limit} projektów. Ulepsz plan aby dodać więcej.`,
-        used,
-        limit,
-      }
+      return { allowed: false, reason: `Osiągnąłeś limit ${limit} projektów.`, used, limit }
     }
     return { allowed: true, used, limit }
   } catch {
