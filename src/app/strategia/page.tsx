@@ -46,7 +46,12 @@ export default function StrategiaPage() {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    setHistory(historyLoad<StrategyData>('strategia', projectId))
+    const h = historyLoad<StrategyData>('strategia', projectId)
+    setHistory(h)
+    // Auto-load latest strategy on mount
+    if (h.length > 0 && !data) {
+      setData(h[0].data)
+    }
   }, [projectId])
 
   function togglePlatform(id: Platform) { setPlatforms(p => p.includes(id) ? p.filter(x=>x!==id) : [...p,id]) }

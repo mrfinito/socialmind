@@ -1,10 +1,12 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import AppShell from '@/components/layout/AppShell'
 import { useStore } from '@/lib/store'
 import { PLATFORMS } from '@/lib/types'
 import type { Platform } from '@/lib/types'
 import PlatformIcon from '@/components/PlatformIcon'
+import { historyLoad, historySave } from '@/lib/history'
+import type { HistoryEntry } from '@/lib/history'
 
 interface RtmPost { platform: string; angle: string; text: string; hook: string; hashtags: string[]; emoji: boolean; imageIdea: string }
 interface RtmOpportunity { id:string; title:string; category:string; relevance:string; why:string; risk:string; urgency:string; posts: RtmPost[] }
@@ -36,7 +38,7 @@ const CATEGORY_ICONS: Record<string,string> = {
 function Dots() { return <span className="inline-flex gap-0.5">{[0,1,2].map(i=><span key={i} className="w-1.5 h-1.5 bg-white/60 rounded-full animate-bounce" style={{animationDelay:`${i*0.15}s`}}/>)}</span> }
 
 export default function RtmPage() {
-  const { dna, selectedPlatforms: storePlatforms } = useStore()
+  const { dna, selectedPlatforms: storePlatforms, activeProject } = useStore()
   const [platforms, setPlatforms] = useState<Platform[]>(storePlatforms.length ? storePlatforms : ['facebook','instagram'])
   const [industry, setIndustry] = useState(dna?.industry || '')
   const [loading, setLoading] = useState(false)
@@ -44,6 +46,17 @@ export default function RtmPage() {
   const [error, setError] = useState('')
   const [selected, setSelected] = useState<RtmOpportunity|null>(null)
   const [selectedPost, setSelectedPost] = useState<RtmPost|null>(null)
+  const [history, setHistory] = useState<HistoryEntry<RtmData>[]>([])
+  const projectId = activeProject?.id || 'default'
+
+  useEffect(() => {
+    const h = historyLoad<RtmData>('rtm', projectId)
+    setHistory(h)
+    if (h.length > 0 && !data) {
+      setData(h[0].data)
+      if (h[0].data.opportunities?.length) setSelected(h[0].data.opportunities[0])
+    }
+  }, [projectId])
   const [copied, setCopied] = useState<string|null>(null)
 
   function togglePlatform(id: Platform) { setPlatforms(p => p.includes(id) ? p.filter(x=>x!==id) : [...p,id]) }

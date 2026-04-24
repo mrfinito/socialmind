@@ -3,6 +3,9 @@ import AppShell from '@/components/layout/AppShell'
 import Link from 'next/link'
 import PlatformIcon from '@/components/PlatformIcon'
 import { useStore } from '@/lib/store'
+import { useState, useEffect } from 'react'
+import { historyLoad } from '@/lib/history'
+import type { HistoryEntry } from '@/lib/history'
 import { PLATFORMS } from '@/lib/types'
 
 const TIPS = [
@@ -12,8 +15,19 @@ const TIPS = [
 ]
 const TEMPLATES = ['Świadomość marki','Edukacja','Sprzedaż','Zaangażowanie','Ruch na stronie','Budowanie społeczności']
 
+interface RtmBrief { date?: string; opportunities?: { title?: string; category?: string }[] }
+interface StrategyBrief { executiveSummary?: string }
+
 export default function Dashboard() {
   const { projectDrafts, ready, dna, selectedPlatforms, activeProject, state, projectMaterials } = useStore()
+  const [strategyHistory, setStrategyHistory] = useState<HistoryEntry<StrategyBrief>[]>([])
+  const [rtmHistory, setRtmHistory] = useState<HistoryEntry<RtmBrief>[]>([])
+  const projectId = activeProject?.id || 'default'
+
+  useEffect(() => {
+    setStrategyHistory(historyLoad<StrategyBrief>('strategia', projectId))
+    setRtmHistory(historyLoad<RtmBrief>('rtm', projectId))
+  }, [projectId])
 
   if (!ready) return <AppShell><div className="px-8 py-8 text-gray-600 text-sm">Ładowanie...</div></AppShell>
 
@@ -259,6 +273,60 @@ export default function Dashboard() {
               ))
             }
           </div>
+
+          {(strategyHistory.length > 0 || rtmHistory.length > 0) && (
+            <div className="col-span-3 grid grid-cols-2 gap-4 mb-4">
+              {strategyHistory.length > 0 && (
+                <Link href="/strategia" className="card hover:border-indigo-500/40 transition-all group">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">🧭</span>
+                      <h3 className="text-sm font-semibold text-white">Ostatnia strategia</h3>
+                    </div>
+                    <span className="text-xs text-indigo-400 group-hover:translate-x-1 transition-transform">→</span>
+                  </div>
+                  <p className="text-xs text-gray-400 mb-2">{strategyHistory[0].title}</p>
+                  <p className="text-[10px] text-gray-600 mb-3">{strategyHistory[0].subtitle} · {new Date(strategyHistory[0].createdAt).toLocaleDateString('pl')}</p>
+                  {strategyHistory[0].data.executiveSummary && (
+                    <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">{strategyHistory[0].data.executiveSummary}</p>
+                  )}
+                  {strategyHistory.length > 1 && (
+                    <p className="text-[10px] text-gray-600 mt-3 pt-3 border-t border-white/5">
+                      + {strategyHistory.length - 1} {strategyHistory.length - 1 === 1 ? 'poprzednia' : 'poprzednich'}
+                    </p>
+                  )}
+                </Link>
+              )}
+              {rtmHistory.length > 0 && (
+                <Link href="/rtm" className="card hover:border-indigo-500/40 transition-all group">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">⚡</span>
+                      <h3 className="text-sm font-semibold text-white">Ostatnie RTM</h3>
+                    </div>
+                    <span className="text-xs text-indigo-400 group-hover:translate-x-1 transition-transform">→</span>
+                  </div>
+                  <p className="text-xs text-gray-400 mb-2">{rtmHistory[0].title}</p>
+                  <p className="text-[10px] text-gray-600 mb-3">{rtmHistory[0].subtitle}</p>
+                  {rtmHistory[0].data.opportunities && rtmHistory[0].data.opportunities.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {rtmHistory[0].data.opportunities.slice(0, 3).map((opp, i) => (
+                        <span key={i} className="text-[10px] px-2 py-0.5 rounded-full"
+                          style={{background:'rgba(99,102,241,0.1)',color:'#a5b4fc',border:'1px solid rgba(99,102,241,0.2)'}}>
+                          {opp.title}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {rtmHistory.length > 1 && (
+                    <p className="text-[10px] text-gray-600 mt-3 pt-3 border-t border-white/5">
+                      + {rtmHistory.length - 1} {rtmHistory.length - 1 === 1 ? 'poprzednie' : 'poprzednich'}
+                    </p>
+                  )}
+                </Link>
+              )}
+            </div>
+          )}
 
           <div className="col-span-3 rounded-2xl border border-indigo-500/20 p-6 flex items-center justify-between"
             style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(168,85,247,0.06) 100%)' }}>
