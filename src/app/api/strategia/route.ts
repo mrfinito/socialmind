@@ -82,6 +82,7 @@ Odpowiedz TYLKO JSON bez markdown:
       }
     }
 
+    console.log('Strategia fullText length:', fullText.length, 'first80:', fullText.slice(0,80), 'last80:', fullText.slice(-80))
     const parsed = robustParse(fullText)
     return NextResponse.json({ ok: true, data: parsed })
 
