@@ -52,25 +52,56 @@ export default function StrategiaPage() {
   function togglePlatform(id: Platform) { setPlatforms(p => p.includes(id) ? p.filter(x=>x!==id) : [...p,id]) }
   function toggleGoal(g: string) { setGoals(p => p.includes(g) ? p.filter(x=>x!==g) : [...p,g]) }
 
+  const [streamText, setStreamText] = useState('')
+
   async function generate() {
-    setLoading(true); setError('')
+    setLoading(true); setError(''); setStreamText('')
     try {
       const res = await fetch('/api/strategia', {
         method: 'POST', headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ dna, competitors, targetAudience, goals, budget, duration, platforms })
       })
-      const j = await res.json()
-      if (!res.ok) throw new Error(j.error || 'Blad serwera')
-      setData(j.data)
-      const entry = historySave<StrategyData>('strategia', projectId, {
-        title: `Strategia — ${dna?.brandName || 'Marka'}`,
-        subtitle: `${duration} · ${goals[0]}`,
-        data: j.data,
-      })
-      setHistory(prev => [entry, ...prev].slice(0, 10))
-      setActiveTab('overview')
+
+      if (!res.ok) {
+        const j = await res.json()
+        throw new Error(j.error || 'Blad serwera')
+      }
+
+      // Handle streaming SSE
+      const reader = res.body?.getReader()
+      const decoder = new TextDecoder()
+      if (!reader) throw new Error('Brak streamu')
+
+      let accumulated = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = decoder.decode(value)
+        const lines = chunk.split('\n')
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          try {
+            const parsed = JSON.parse(line.slice(6))
+            if (parsed.chunk) {
+              accumulated += parsed.chunk
+              setStreamText(accumulated.slice(-200))
+            }
+            if (parsed.done && parsed.data) {
+              setData(parsed.data)
+              const entry = historySave<StrategyData>('strategia', projectId, {
+                title: `Strategia — ${dna?.brandName || 'Marka'}`,
+                subtitle: `${duration} · ${goals[0]}`,
+                data: parsed.data,
+              })
+              setHistory(prev => [entry, ...prev].slice(0, 10))
+              setActiveTab('overview')
+            }
+            if (parsed.error) throw new Error(parsed.error)
+          } catch {}
+        }
+      }
     } catch(e:unknown) { setError(e instanceof Error ? e.message : 'Błąd') }
-    finally { setLoading(false) }
+    finally { setLoading(false); setStreamText('') }
   }
 
   function exportStrategy() {
@@ -209,9 +240,21 @@ export default function StrategiaPage() {
                 <span>✦</span> Strategia będzie zbudowana na Brand DNA: <strong>{dna.brandName}</strong> · {dna.industry}
               </div>
             )}
+            {loading && streamText && (
+              <div className="p-3 rounded-xl text-xs font-mono text-indigo-300/60 overflow-hidden"
+                style={{background:'rgba(99,102,241,0.06)',border:'1px solid rgba(99,102,241,0.15)'}}>
+                <p className="text-[10px] text-indigo-400 mb-1">Generowanie w toku...</p>
+                <p className="truncate">{streamText}</p>
+              </div>
+            )}
             {error && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">{error}</p>}
             <button className="btn-primary flex items-center gap-2 px-8 py-3 text-base" onClick={generate} disabled={loading}>
-              {loading ? <><Dots/> Buduję strategię...</> : '🧭 Generuj strategię komunikacji'}
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <Dots/> 
+                  {streamText ? 'Generuję strategię...' : 'Analizuję markę...'}
+                </span>
+              ) : '🧭 Generuj strategię komunikacji'}
             </button>
           </div>
         )}

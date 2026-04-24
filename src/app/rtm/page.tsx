@@ -48,19 +48,49 @@ export default function RtmPage() {
 
   function togglePlatform(id: Platform) { setPlatforms(p => p.includes(id) ? p.filter(x=>x!==id) : [...p,id]) }
 
+  const [streamProgress, setStreamProgress] = useState('')
+
   async function scan() {
-    setLoading(true); setError(''); setData(null); setSelected(null)
+    setLoading(true); setError(''); setData(null); setSelected(null); setStreamProgress('')
     try {
       const res = await fetch('/api/rtm', {
         method: 'POST', headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ dna, industry: industry || dna?.industry, platforms, country: 'Polska' })
       })
-      const j = await res.json()
-      if (!res.ok) throw new Error(j.error)
-      setData(j.data)
-      if (j.data.opportunities?.length) setSelected(j.data.opportunities[0])
+
+      if (!res.ok) {
+        const j = await res.json()
+        throw new Error(j.error)
+      }
+
+      const reader = res.body?.getReader()
+      const decoder = new TextDecoder()
+      if (!reader) throw new Error('Brak streamu')
+
+      let accumulated = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = decoder.decode(value)
+        const lines = chunk.split('\n')
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          try {
+            const parsed = JSON.parse(line.slice(6))
+            if (parsed.chunk) {
+              accumulated += parsed.chunk
+              setStreamProgress('Skanuje trendy i newsy...')
+            }
+            if (parsed.done && parsed.data) {
+              setData(parsed.data)
+              if (parsed.data.opportunities?.length) setSelected(parsed.data.opportunities[0])
+            }
+            if (parsed.error) throw new Error(parsed.error)
+          } catch {}
+        }
+      }
     } catch(e:unknown) { setError(e instanceof Error ? e.message : 'Błąd') }
-    finally { setLoading(false) }
+    finally { setLoading(false); setStreamProgress('') }
   }
 
   function copy(text: string, key: string) {
