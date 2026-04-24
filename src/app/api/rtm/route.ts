@@ -18,118 +18,44 @@ export async function POST(req: NextRequest) {
     const today = new Date().toLocaleDateString('pl', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
     })
-    const brand = String(dna?.brandName || 'Marka').slice(0, 60)
-    const ind = String(industry || dna?.industry || 'ogolna').slice(0, 60)
-    const tone = String(dna?.tone || 'profesjonalny').slice(0, 100)
-    const persona = String(dna?.persona || '').slice(0, 100)
-    const usp = String(dna?.usp || '').slice(0, 100)
-    const plt = Array.isArray(platforms) ? platforms.slice(0, 3).join(', ') : 'facebook, instagram'
+    const brand = String(dna?.brandName || 'Marka').slice(0, 50)
+    const ind = String(industry || dna?.industry || 'ogolna').slice(0, 50)
+    const tone = String(dna?.tone || 'profesjonalny').slice(0, 80)
+    const persona = String(dna?.persona || '').slice(0, 80)
+    const plt = Array.isArray(platforms) ? platforms.slice(0, 2).join(', ') : 'facebook, instagram'
 
-    const prompt = `Jestes ekspertem od Real Time Marketingu z doswiadczeniem w polskim rynku.
+    const prompt = `Ekspert RTM. Dzis: ${today}. Kraj: ${country || 'Polska'}.
+Marka: ${brand}. Branza: ${ind}. Ton: ${tone}. Odbiorcy: ${persona}. Platformy: ${plt}.
 
-Dzisiaj jest: ${today}
-Kraj: ${country || 'Polska'}
-Marka: ${brand}
-Branza: ${ind}
-Ton komunikacji: ${tone}
-Persona klienta: ${persona}
-USP: ${usp}
-Platformy: ${plt}
-
-Zidentyfikuj 4 aktualne okazje RTM na dzis (swieta, trendy, newsy, rocznice) i wygeneruj gotowe posty dla marki ${brand}.
-
-Odpowiedz TYLKO czystym JSON:
+Znajdz 3 okazje RTM i napisz posty. Odpowiedz TYLKO JSON bez markdown:
 {
   "date": "${today}",
   "opportunities": [
-    {
-      "id": "o1",
-      "title": "konkretna nazwa okazji",
-      "category": "swieto",
-      "relevance": "wysokie",
-      "why": "dlaczego pasuje do marki ${brand} i jej klientow",
-      "risk": "ewentualne ryzyko lub brak",
-      "urgency": "dzisiaj",
-      "posts": [
-        {
-          "platform": "facebook",
-          "angle": "kreatywny koncept podpiecia marki pod temat",
-          "text": "pelny profesjonalny tekst posta min 3 zdania w tonie: ${tone}",
-          "hook": "pierwsze zdanie zatrzymujace uwage",
-          "hashtags": ["#tag1", "#tag2", "#tag3", "#tag4"],
-          "imageIdea": "szczegolowy opis grafiki lub wideo"
-        },
-        {
-          "platform": "instagram",
-          "angle": "koncept dla Instagram",
-          "text": "caption z emoji dla Instagram",
-          "hook": "hook z emoji",
-          "hashtags": ["#tag1", "#tag2", "#tag3", "#tag4", "#tag5"],
-          "imageIdea": "pomysl na reel lub karuzele"
-        }
-      ]
-    },
-    {
-      "id": "o2",
-      "title": "nazwa drugiej okazji",
-      "category": "trend",
-      "relevance": "srednie",
-      "why": "dlaczego pasuje",
-      "risk": "brak",
-      "urgency": "ten tydzien",
-      "posts": [
-        {"platform": "facebook", "angle": "koncept", "text": "tekst posta", "hook": "hook", "hashtags": ["#tag1", "#tag2"], "imageIdea": "pomysl"},
-        {"platform": "instagram", "angle": "koncept", "text": "caption", "hook": "hook", "hashtags": ["#tag1", "#tag2", "#tag3"], "imageIdea": "pomysl"}
-      ]
-    },
-    {
-      "id": "o3",
-      "title": "nazwa trzeciej okazji",
-      "category": "kultura",
-      "relevance": "srednie",
-      "why": "dlaczego pasuje",
-      "risk": "brak",
-      "urgency": "ten tydzien",
-      "posts": [
-        {"platform": "facebook", "angle": "koncept", "text": "tekst posta", "hook": "hook", "hashtags": ["#tag1", "#tag2"], "imageIdea": "pomysl"}
-      ]
-    },
-    {
-      "id": "o4",
-      "title": "nazwa czwartej okazji",
-      "category": "news",
-      "relevance": "niskie",
-      "why": "dlaczego pasuje",
-      "risk": "brak",
-      "urgency": "ten tydzien",
-      "posts": [
-        {"platform": "facebook", "angle": "koncept", "text": "tekst posta", "hook": "hook", "hashtags": ["#tag1"], "imageIdea": "pomysl"}
-      ]
-    }
+    {"id":"o1","title":"nazwa","category":"swieto","relevance":"wysokie","why":"dlaczego pasuje do ${brand}","risk":"brak","urgency":"dzisiaj","posts":[{"platform":"facebook","angle":"koncept","text":"tekst posta min 3 zdania","hook":"pierwsze zdanie","hashtags":["#tag1","#tag2","#tag3"],"imageIdea":"pomysl na grafike"},{"platform":"instagram","angle":"koncept IG","text":"caption z emoji","hook":"hook z emoji","hashtags":["#tag1","#tag2","#tag3","#tag4"],"imageIdea":"pomysl na reel"}]},
+    {"id":"o2","title":"nazwa 2","category":"trend","relevance":"srednie","why":"dlaczego","risk":"brak","urgency":"ten tydzien","posts":[{"platform":"facebook","angle":"koncept","text":"tekst","hook":"hook","hashtags":["#tag1","#tag2"],"imageIdea":"pomysl"}]},
+    {"id":"o3","title":"nazwa 3","category":"kultura","relevance":"srednie","why":"dlaczego","risk":"brak","urgency":"ten tydzien","posts":[{"platform":"facebook","angle":"koncept","text":"tekst","hook":"hook","hashtags":["#tag1"],"imageIdea":"pomysl"}]}
   ],
-  "todayCalendar": [
-    {"name": "nazwa swieta lub dnia tematycznego", "type": "swieto", "potential": "wysoki", "idea": "konkretny pomysl jak marka ${brand} moze to wykorzystac"},
-    {"name": "inna data", "type": "dzien_tematyczny", "potential": "sredni", "idea": "pomysl"}
-  ],
-  "weeklyTrends": [
-    {"trend": "nazwa trendu tygodnia", "platform": "instagram", "relevance": "jak marka ${brand} moze sie podpiac"},
-    {"trend": "drugi trend", "platform": "tiktok", "relevance": "jak sie podpiac"}
-  ],
-  "avoidTopics": ["temat do unikniecia z powodem"],
-  "rtmTips": ["konkretna wskazowka RTM dla ${brand} na dzis", "wskazowka 2", "wskazowka 3"]
+  "todayCalendar":[{"name":"swieto","type":"swieto","potential":"wysoki","idea":"pomysl dla ${brand}"},{"name":"dzien tematyczny","type":"dzien_tematyczny","potential":"sredni","idea":"pomysl"}],
+  "weeklyTrends":[{"trend":"trend","platform":"instagram","relevance":"jak sie podpiac"},{"trend":"trend 2","platform":"tiktok","relevance":"jak"}],
+  "avoidTopics":["temat do unikniecia"],
+  "rtmTips":["wskazowka 1","wskazowka 2","wskazowka 3"]
 }`
 
-    const response = await client.messages.create({
+    // Use streaming to avoid timeout
+    let fullText = ''
+    const stream = await client.messages.stream({
       model: 'claude-sonnet-4-6',
-      max_tokens: 4000,
+      max_tokens: 3000,
       messages: [{ role: 'user', content: prompt }]
     })
 
-    const raw = response.content
-      .map((b: { type: string; text?: string }) => b.type === 'text' ? b.text : '')
-      .join('')
+    for await (const chunk of stream) {
+      if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+        fullText += chunk.delta.text
+      }
+    }
 
-    const parsed = robustParse(raw)
+    const parsed = robustParse(fullText)
     return NextResponse.json({ ok: true, data: parsed })
 
   } catch (err) {

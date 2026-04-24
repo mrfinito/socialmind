@@ -15,121 +15,74 @@ export async function POST(req: NextRequest) {
 
   try {
     const { dna, competitors, targetAudience, goals, budget, duration, platforms } = await req.json()
-    const brand = String(dna?.brandName || 'Marka').slice(0, 60)
-    const ind = String(dna?.industry || 'ogolna').slice(0, 60)
-    const tone = String(dna?.tone || 'profesjonalny').slice(0, 100)
-    const usp = String(dna?.usp || '').slice(0, 120)
-    const persona = String(dna?.persona || targetAudience || '').slice(0, 120)
-    const values = String(dna?.values || '').slice(0, 100)
-    const plt = Array.isArray(platforms) ? platforms.join(', ') : 'facebook, instagram'
+    const brand = String(dna?.brandName || 'Marka').slice(0, 50)
+    const ind = String(dna?.industry || 'ogolna').slice(0, 50)
+    const tone = String(dna?.tone || 'profesjonalny').slice(0, 80)
+    const usp = String(dna?.usp || '').slice(0, 100)
+    const persona = String(dna?.persona || targetAudience || '').slice(0, 100)
+    const plt = Array.isArray(platforms) ? platforms.slice(0, 2).join(', ') : 'facebook'
     const dur = String(duration || '3 miesiace')
-    const goalsStr = Array.isArray(goals) ? goals.join(', ') : String(goals || 'swiadomosc marki')
+    const goalsStr = Array.isArray(goals) ? goals.slice(0, 3).join(', ') : 'swiadomosc marki'
 
-    const prompt = `Jestes doswiadczonym strategiem komunikacji w social mediach.
+    const prompt = `Strateg social media. Stworz strategie dla marki ${brand}.
+Branza: ${ind}. Ton: ${tone}. USP: ${usp}. Persona: ${persona}.
+Konkurenci: ${String(competitors || 'brak').slice(0, 80)}.
+Cele: ${goalsStr}. Budzet: ${String(budget || 'sredni')}. Horyzont: ${dur}. Platformy: ${plt}.
 
-DANE MARKI:
-Nazwa: ${brand}
-Branza: ${ind}
-USP: ${usp}
-Ton komunikacji: ${tone}
-Persona klienta: ${persona}
-Wartosci: ${values}
-
-KONTEKST:
-Glowni konkurenci: ${String(competitors || 'brak').slice(0, 150)}
-Cele: ${goalsStr}
-Budzet miesięczny: ${String(budget || 'nie podano')}
-Horyzont: ${dur}
-Platformy: ${plt}
-
-Stworz kompleksowa strategie komunikacji social media. Odpowiedz TYLKO czystym JSON:
+Odpowiedz TYLKO JSON bez markdown:
 {
-  "executiveSummary": "podsumowanie strategii 3-4 zdania konkretne i mierzalne",
-  "brandPosition": {
-    "currentState": "obiektywna ocena obecnej pozycji marki",
-    "desiredState": "konkretny cel na koniec ${dur}",
-    "gap": "glowne dzialania potrzebne do osiagniecia celu",
-    "uniqueVoice": "unikalny glos i styl komunikacji marki ${brand}"
-  },
-  "audienceInsight": {
-    "primarySegment": "szczegolowy opis glownego segmentu",
-    "painPoints": ["konkretny bol 1", "bol 2", "bol 3"],
-    "motivations": ["motywacja do zakupu 1", "motywacja 2"],
-    "contentConsumption": "kiedy i jak konsumuje content social media",
-    "decisionFactors": ["czynnik decyzji 1", "czynnik 2"]
-  },
-  "competitiveAnalysis": {
-    "marketGaps": ["luka rynkowa 1", "luka 2", "luka 3"],
-    "differentiators": ["wyroznik vs konkurencja 1", "wyroznik 2"],
-    "competitorWeaknesses": "co konkurencja robi zle lub pomija"
-  },
+  "executiveSummary": "podsumowanie 2-3 zdania",
+  "brandPosition": {"currentState": "obecna pozycja", "desiredState": "cel za ${dur}", "gap": "co zrobic", "uniqueVoice": "unikalny glos"},
+  "audienceInsight": {"primarySegment": "opis", "painPoints": ["bol 1","bol 2","bol 3"], "motivations": ["mot 1","mot 2"], "contentConsumption": "kiedy i jak", "decisionFactors": ["czynnik 1","czynnik 2"]},
+  "competitiveAnalysis": {"marketGaps": ["luka 1","luka 2","luka 3"], "differentiators": ["wyroznik 1","wyroznik 2"], "competitorWeaknesses": "co robi zle"},
   "contentStrategy": {
     "pillars": [
-      {"name": "Filar 1", "description": "szczegolowy opis filaru", "percentage": 30, "examples": ["przyklad posta 1", "przyklad 2"]},
+      {"name": "Filar 1", "description": "opis", "percentage": 30, "examples": ["przyklad 1","przyklad 2"]},
       {"name": "Filar 2", "description": "opis", "percentage": 25, "examples": ["przyklad"]},
       {"name": "Filar 3", "description": "opis", "percentage": 25, "examples": ["przyklad"]},
       {"name": "Filar 4", "description": "opis", "percentage": 20, "examples": ["przyklad"]}
     ],
-    "toneGuidelines": ["zasada tonu 1", "zasada 2", "zasada 3", "zasada 4"],
-    "doList": ["co robic 1", "co robic 2", "co robic 3", "co robic 4"],
-    "dontList": ["czego nie robic 1", "czego nie robic 2", "czego nie robic 3"]
+    "toneGuidelines": ["zasada 1","zasada 2","zasada 3"],
+    "doList": ["robic 1","robic 2","robic 3"],
+    "dontList": ["nie robic 1","nie robic 2"]
   },
-  "platformStrategy": [
-    {
-      "platform": "pierwsza platforma",
-      "role": "rola tej platformy w strategii",
-      "frequency": "ile razy w tygodniu",
-      "bestFormats": ["format 1", "format 2", "format 3"],
-      "bestTimes": "najlepsze godziny i dni",
-      "kpi": "glowny KPI",
-      "contentMix": "proporcje typow tresci"
-    }
-  ],
+  "platformStrategy": [{"platform": "${plt.split(',')[0].trim()}", "role": "rola", "frequency": "3x tyg", "bestFormats": ["format 1","format 2"], "bestTimes": "18-20", "kpi": "zasieg", "contentMix": "60edu 40promo"}],
   "contentCalendar": {
-    "weeklyRhythm": "szczegolowy rytm tygodniowy co kiedy publikowac",
-    "monthlyThemes": ["temat miesiaca 1", "temat 2", "temat 3"],
-    "keyDates": ["wazna data 1", "data 2", "data 3"],
-    "campaignIdeas": [
-      {"name": "Kampania 1", "concept": "szczegolowy opis konceptu kampanii", "timing": "kiedy realizowac"},
-      {"name": "Kampania 2", "concept": "opis", "timing": "kiedy"},
-      {"name": "Kampania 3", "concept": "opis", "timing": "kiedy"}
-    ]
+    "weeklyRhythm": "rytm tygodniowy",
+    "monthlyThemes": ["temat 1","temat 2","temat 3"],
+    "keyDates": ["data 1","data 2"],
+    "campaignIdeas": [{"name": "Kampania 1", "concept": "opis", "timing": "miesiac 1"},{"name": "Kampania 2", "concept": "opis", "timing": "miesiac 2"}]
   },
   "kpis": [
-    {"metric": "Zasieg organiczny", "target": "konkretna liczba/mies", "timeline": "${dur}", "howToMeasure": "narzedzie"},
-    {"metric": "Wskaznik zaangazowania", "target": "procent", "timeline": "${dur}", "howToMeasure": "jak mierzyc"},
-    {"metric": "Wzrost obserwujacych", "target": "liczba/mies", "timeline": "${dur}", "howToMeasure": "jak"},
-    {"metric": "Konwersje", "target": "liczba leadow/mies", "timeline": "${dur}", "howToMeasure": "UTM + Pixel"}
+    {"metric": "Zasieg", "target": "liczba/mies", "timeline": "${dur}", "howToMeasure": "Meta Analytics"},
+    {"metric": "Zaangazowanie", "target": "procent", "timeline": "${dur}", "howToMeasure": "srednia na post"},
+    {"metric": "Obserwujacy", "target": "wzrost/mies", "timeline": "${dur}", "howToMeasure": "Insights"}
   ],
   "actionPlan": [
-    {"week": "Tydzien 1-2 — Fundament", "actions": ["akcja 1", "akcja 2", "akcja 3", "akcja 4"]},
-    {"week": "Tydzien 3-4 — Launch", "actions": ["akcja 1", "akcja 2", "akcja 3"]},
-    {"week": "Miesiac 2 — Skalowanie", "actions": ["akcja 1", "akcja 2", "akcja 3"]},
-    {"week": "Miesiac 3 — Optymalizacja", "actions": ["akcja 1", "akcja 2", "akcja 3"]}
+    {"week": "Tydzien 1-2", "actions": ["akcja 1","akcja 2","akcja 3"]},
+    {"week": "Tydzien 3-4", "actions": ["akcja 1","akcja 2"]},
+    {"week": "Miesiac 2", "actions": ["akcja 1","akcja 2"]},
+    {"week": "Miesiac 3", "actions": ["akcja 1","akcja 2"]}
   ],
-  "budget": {
-    "organic": "szczegolowy plan dzialan organicznych",
-    "paid": "rekomendacja podzialu budzetu na reklamy",
-    "tools": ["narzedzie 1 — do czego", "narzedzie 2", "narzedzie 3", "narzedzie 4"]
-  },
-  "hashtags": {
-    "brand": ["#hashtag_marki_1", "#hashtag_marki_2"],
-    "industry": ["#branzowy1", "#branzowy2", "#branzowy3", "#branzowy4"],
-    "campaign": "#unikalny_hashtag_kampanii"
-  }
+  "budget": {"organic": "plan organiczny", "paid": "podzial budzetu", "tools": ["Canva","Meta Business Suite","SocialMind"]},
+  "hashtags": {"brand": ["#brand1","#brand2"], "industry": ["#branza1","#branza2","#branza3"], "campaign": "#hashtagKampanii"}
 }`
 
-    const response = await client.messages.create({
+    // Use streaming to avoid timeout
+    let fullText = ''
+    const stream = await client.messages.stream({
       model: 'claude-sonnet-4-6',
-      max_tokens: 4000,
+      max_tokens: 3000,
       messages: [{ role: 'user', content: prompt }]
     })
 
-    const raw = response.content
-      .map((b: { type: string; text?: string }) => b.type === 'text' ? b.text : '')
-      .join('')
+    for await (const chunk of stream) {
+      if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+        fullText += chunk.delta.text
+      }
+    }
 
-    const parsed = robustParse(raw)
+    const parsed = robustParse(fullText)
     return NextResponse.json({ ok: true, data: parsed })
 
   } catch (err) {
