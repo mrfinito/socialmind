@@ -92,13 +92,16 @@ export default function StrategiaPage() {
             continue // ignore partial JSON chunks
           }
           if (!parsedLine) continue
+          console.log('SSE line keys:', Object.keys(parsedLine))
           if (parsedLine.chunk) {
             setStreamText(prev => (prev + parsedLine!.chunk).slice(-300))
           }
           if (parsedLine.error) {
+            console.error('SSE error:', parsedLine.error)
             throw new Error(parsedLine.error)
           }
           if (parsedLine.done && parsedLine.data) {
+            console.log('SSE done! data keys:', Object.keys(parsedLine.data))
             resultRef.current = parsedLine.data
             setStreamText('')
             setResultReady(true)
