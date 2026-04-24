@@ -1,7 +1,10 @@
 // Robust JSON parser that handles common AI response issues
 export function robustParse(raw: string): unknown {
-  // Strip markdown code blocks
-  let clean = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
+  // Strip markdown code blocks (with or without spaces/newlines)
+  let clean = raw
+    .replace(/`{3,}json\s*/gi, '')
+    .replace(/`{3,}\s*/g, '')
+    .trim()
 
   // Try direct parse first
   try { return JSON.parse(clean) } catch {}
