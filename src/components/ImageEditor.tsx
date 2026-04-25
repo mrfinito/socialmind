@@ -269,35 +269,78 @@ export default function ImageEditor({ imageUrl, visuals, onSave, onClose }: Prop
           {/* Controls */}
           <div className="w-72 border-l border-white/8 p-4 space-y-5 overflow-y-auto">
 
-            {/* Logo controls */}
-            {visuals?.logoUrl && (
-              <div>
-                <p className="label">Logo</p>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input type="checkbox" checked={showLogo} onChange={e => setShowLogo(e.target.checked)} />
-                    Pokaz logo na grafice
+            {/* Logo / Image upload */}
+            <div>
+              <p className="label">Logo lub dodatkowa grafika</p>
+              <div className="space-y-2">
+                {logoImage ? (
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-2 text-sm cursor-pointer flex-1">
+                      <input type="checkbox" checked={showLogo} onChange={e => setShowLogo(e.target.checked)} />
+                      Pokaż na grafice
+                    </label>
+                    <button onClick={() => { setLogoImage(null); setShowLogo(false) }}
+                      className="text-xs text-red-400 hover:text-red-300">🗑 Usuń</button>
+                  </div>
+                ) : null}
+
+                <div className="flex gap-2">
+                  <label className="flex-1 text-xs py-2 px-3 rounded-lg border border-white/10 bg-white/5 text-gray-300 hover:bg-white/10 cursor-pointer text-center transition-all">
+                    📎 Wgraj plik (PNG/JPG)
+                    <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+                      onChange={e => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        const reader = new FileReader()
+                        reader.onload = ev => {
+                          const img = new Image()
+                          img.onload = () => {
+                            setLogoImage(img)
+                            setShowLogo(true)
+                            setLogoLayer({ x: 20, y: 20, width: Math.min(200, img.width), opacity: 1 })
+                          }
+                          img.src = ev.target?.result as string
+                        }
+                        reader.readAsDataURL(file)
+                        e.target.value = ''
+                      }} />
                   </label>
-                  {showLogo && (
-                    <>
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Rozmiar ({Math.round(logoLayer.width)}px)</p>
-                        <input type="range" min="40" max="300" value={logoLayer.width}
-                          onChange={e => setLogoLayer(prev => ({ ...prev, width: parseInt(e.target.value) }))}
-                          className="w-full" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Przezroczystosc ({Math.round(logoLayer.opacity * 100)}%)</p>
-                        <input type="range" min="20" max="100" value={logoLayer.opacity * 100}
-                          onChange={e => setLogoLayer(prev => ({ ...prev, opacity: parseInt(e.target.value) / 100 }))}
-                          className="w-full" />
-                      </div>
-                      <p className="text-xs text-gray-400">Przeciagnij logo na obrazku zeby zmienic pozycje</p>
-                    </>
+                  {visuals?.logoUrl && (
+                    <button onClick={() => {
+                        const img = new Image()
+                        img.onload = () => {
+                          setLogoImage(img)
+                          setShowLogo(true)
+                          const pct = (visuals.logoSizePercent || 15) / 100
+                          setLogoLayer({ x: 20, y: 20, width: 600 * pct, opacity: 1 })
+                        }
+                        img.src = visuals.logoUrl!
+                      }}
+                      className="text-xs py-2 px-3 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 transition-all">
+                      ⭐ Logo marki
+                    </button>
                   )}
                 </div>
+
+                {showLogo && logoImage && (
+                  <div className="space-y-2 pt-2 border-t border-white/5 mt-2">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Rozmiar ({Math.round(logoLayer.width)}px)</p>
+                      <input type="range" min="40" max="500" value={logoLayer.width}
+                        onChange={e => setLogoLayer(prev => ({ ...prev, width: parseInt(e.target.value) }))}
+                        className="w-full" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Przezroczystosc ({Math.round(logoLayer.opacity * 100)}%)</p>
+                      <input type="range" min="20" max="100" value={logoLayer.opacity * 100}
+                        onChange={e => setLogoLayer(prev => ({ ...prev, opacity: parseInt(e.target.value) / 100 }))}
+                        className="w-full" />
+                    </div>
+                    <p className="text-xs text-gray-500">💡 Przeciągnij na grafice żeby zmienić pozycję</p>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
             {/* Add text */}
             <div>

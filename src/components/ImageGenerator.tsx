@@ -1,5 +1,9 @@
 'use client'
 import { useState } from 'react'
+import dynamic from 'next/dynamic'
+import { useStore } from '@/lib/store'
+
+const ImageEditor = dynamic(() => import('./ImageEditor'), { ssr: false })
 
 type ImageProvider = 'gemini' | 'dalle'
 
@@ -35,6 +39,8 @@ export default function ImageGenerator({
   size = 'md',
   showProviderToggle = true,
 }: Props) {
+  const { dna } = useStore()
+  const visuals = dna?.visuals
   const [provider, setProvider] = useState<ImageProvider>('gemini')
   const [generating, setGenerating] = useState(false)
   const [iterations, setIterations] = useState<ImageIteration[]>([])
@@ -42,10 +48,13 @@ export default function ImageGenerator({
   const [error, setError] = useState('')
   const [showRevise, setShowRevise] = useState(false)
   const [revisionText, setRevisionText] = useState('')
+  const [showEditor, setShowEditor] = useState(false)
+  const [editedUrl, setEditedUrl] = useState<string | null>(null)
 
   const heightClass = size === 'sm' ? 'max-h-48' : size === 'lg' ? 'max-h-96' : 'max-h-64'
   const providerLabel = provider === 'dalle' ? 'DALL-E 3' : 'Nano Banana'
   const activeIteration = iterations[activeIdx]
+  const displayUrl = editedUrl || activeIteration?.url
 
   async function generate(revision?: string) {
     setGenerating(true)
@@ -68,6 +77,7 @@ export default function ImageGenerator({
       setIterations(prev => {
         const next = [...prev, newIter]
         setActiveIdx(next.length - 1)
+        setEditedUrl(null)
         return next
       })
     } catch (e) {
@@ -85,23 +95,23 @@ export default function ImageGenerator({
   }
 
   async function handleDownload() {
-    if (!activeIteration) return
+    if (!displayUrl) return
     try {
-      const response = await fetch(activeIteration.url)
+      const response = await fetch(displayUrl)
       const blob = await response.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
       const ext = blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg'
       const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
-      a.download = `grafika-${platform}-v${activeIdx + 1}-${ts}.${ext}`
+      const suffix = editedUrl ? '-edytowana' : ''
+      a.download = `grafika-${platform}${suffix}-${ts}.${ext}`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
     } catch {
-      // fallback - open in new tab
-      window.open(activeIteration.url, '_blank')
+      window.open(displayUrl, '_blank')
     }
   }
 
@@ -141,11 +151,17 @@ export default function ImageGenerator({
         <>
           <div className="relative rounded-xl overflow-hidden border border-white/6">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={activeIteration.url} alt="Generated" className={`w-full object-cover ${heightClass}`} />
+            <img src={displayUrl} alt="Generated" className={`w-full object-cover ${heightClass}`} />
             <div className="absolute top-2 left-2 bg-black/60 backdrop-blur text-gray-300 text-[10px] px-2 py-1 rounded-lg border border-white/10">
-              {providerLabel}
-              {iterations.length > 1 && (
-                <span className="ml-1.5 font-semibold text-indigo-400">v{activeIdx + 1}/{iterations.length}</span>
+              {editedUrl ? (
+                <span className="text-emerald-400 font-medium">✏️ Edytowana</span>
+              ) : (
+                <>
+                  {providerLabel}
+                  {iterations.length > 1 && (
+                    <span className="ml-1.5 font-semibold text-indigo-400">v{activeIdx + 1}/{iterations.length}</span>
+                  )}
+                </>
               )}
             </div>
             <div className="absolute top-2 right-2 flex gap-1.5">
@@ -154,7 +170,7 @@ export default function ImageGenerator({
                 title="Pobierz na komputer">
                 ⬇
               </button>
-              <a href={activeIteration.url} target="_blank" rel="noopener noreferrer"
+              <a href={displayUrl} target="_blank" rel="noopener noreferrer"
                 className="bg-black/60 backdrop-blur text-gray-300 text-xs px-2.5 py-1 rounded-lg border border-white/10 hover:bg-black/80"
                 title="Otwórz w nowej karcie">
                 ↗
@@ -162,13 +178,26 @@ export default function ImageGenerator({
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button onClick={handleDownload}
               className="text-xs py-2 px-3 rounded-lg transition-all"
               style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', color: '#6ee7b7' }}
               title="Pobierz na komputer">
               ⬇ Pobierz
             </button>
+            <button onClick={() => setShowEditor(true)}
+              className="text-xs py-2 px-3 rounded-lg transition-all"
+              style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: '#fbbf24' }}
+              title="Dodaj logo / tekst / edytuj">
+              ✏️ Edytuj
+            </button>
+            {editedUrl && (
+              <button onClick={() => setEditedUrl(null)}
+                className="text-xs py-2 px-2 rounded-lg border border-white/10 bg-white/5 text-gray-400 hover:bg-white/10"
+                title="Cofnij edycje">
+                ↺
+              </button>
+            )}
             <button onClick={() => setShowRevise(true)} disabled={generating}
               className="flex-1 text-xs py-2 rounded-lg transition-all disabled:opacity-50"
               style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)', color: '#a5b4fc' }}>
@@ -183,7 +212,7 @@ export default function ImageGenerator({
           {iterations.length > 1 && (
             <div className="flex gap-1.5 overflow-x-auto pb-1">
               {iterations.map((it, i) => (
-                <button key={i} onClick={() => setActiveIdx(i)}
+                <button key={i} onClick={() => { setActiveIdx(i); setEditedUrl(null) }}
                   className="relative shrink-0 rounded-md overflow-hidden transition-all"
                   style={{
                     border: activeIdx === i ? '2px solid #6366f1' : '2px solid rgba(255,255,255,0.08)',
@@ -221,6 +250,18 @@ export default function ImageGenerator({
       )}
 
       {error && <p className="text-xs text-red-400">{error}</p>}
+
+      {showEditor && displayUrl && (
+        <ImageEditor
+          imageUrl={displayUrl}
+          visuals={visuals}
+          onSave={(dataUrl) => {
+            setEditedUrl(dataUrl)
+            setShowEditor(false)
+          }}
+          onClose={() => setShowEditor(false)}
+        />
+      )}
     </div>
   )
 }
