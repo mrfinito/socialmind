@@ -83,7 +83,7 @@ export default function WlasnyBriefPage() {
   const [additionalContext, setAdditionalContext] = useState('')
   const [fileLoading, setFileLoading] = useState(false)
   const [fileName, setFileName] = useState('')
-  const [streamProgress, setStreamProgress] = useState('')
+  const [streamText, setStreamText] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [data, setData] = useState<BriefResult | null>(null)
@@ -126,7 +126,7 @@ export default function WlasnyBriefPage() {
     }
     setLoading(true)
     setError('')
-    setStreamProgress('')
+    setStreamText('')
     setData(null)
     setResultReady(false)
     resultRef.current = null
@@ -139,14 +139,14 @@ export default function WlasnyBriefPage() {
       })
       if (!res.ok) {
         const j = await res.json()
-        throw new Error(j.error)
+        throw new Error(j.error || 'Błąd serwera')
       }
+
       const reader = res.body?.getReader()
       const decoder = new TextDecoder()
       if (!reader) throw new Error('Brak streamu')
-      
+
       let buffer = ''
-      let received = 0
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
@@ -155,36 +155,38 @@ export default function WlasnyBriefPage() {
         buffer = lines.pop() || ''
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue
-          let parsed: { chunk?: string; done?: boolean; data?: BriefResult; error?: string } | null = null
+          const jsonStr = line.slice(6).trim()
+          if (!jsonStr) continue
+          let parsedLine: { chunk?: string; done?: boolean; data?: BriefResult; error?: string } | null = null
           try {
-            parsed = JSON.parse(line.slice(6))
-          } catch (parseErr) {
-            console.error('JSON parse failed for line:', line.slice(0, 100), parseErr)
+            parsedLine = JSON.parse(jsonStr)
+          } catch {
             continue
           }
-          if (!parsed) continue
-          
-          if (parsed.chunk) {
-            received += parsed.chunk.length
-            setStreamProgress(`Otrzymano ${(received/1024).toFixed(1)} KB...`)
+          if (!parsedLine) continue
+          console.log('Brief SSE line keys:', Object.keys(parsedLine))
+          if (parsedLine.chunk) {
+            setStreamText(prev => (prev + parsedLine!.chunk).slice(-300))
           }
-          if (parsed.done && parsed.data) {
-            console.log('Wlasny brief: stream complete, data received', Object.keys(parsed.data))
-            resultRef.current = parsed.data
+          if (parsedLine.error) {
+            console.error('Brief SSE error:', parsedLine.error)
+            throw new Error(parsedLine.error)
+          }
+          if (parsedLine.done && parsedLine.data) {
+            console.log('Brief SSE done! data keys:', Object.keys(parsedLine.data))
+            resultRef.current = parsedLine.data
+            setStreamText('')
             setResultReady(true)
             try {
               const entry = historySave<BriefResult>('wlasny-brief', projectId, {
                 title: projectName || 'Brief kampanii',
-                subtitle: parsed.data.bigIdea?.name || 'Opracowanie',
-                data: parsed.data,
+                subtitle: parsedLine.data.bigIdea?.name || 'Opracowanie',
+                data: parsedLine.data,
               })
-              setHistory(prev => [entry, ...prev].slice(0, 10))
+              setHistory(prev => [entry, ...prev].slice(0, 20))
             } catch (histErr) {
               console.error('History save error:', histErr)
             }
-          }
-          if (parsed.error) {
-            throw new Error(parsed.error)
           }
         }
       }
@@ -192,7 +194,7 @@ export default function WlasnyBriefPage() {
       setError(e instanceof Error ? e.message : 'Błąd')
     } finally {
       setLoading(false)
-      setStreamProgress('')
+      setStreamText('')
     }
   }
 
@@ -214,6 +216,43 @@ export default function WlasnyBriefPage() {
             Wgraj brief kampanii (PDF/DOCX/TXT) lub wpisz ręcznie. AI stworzy strategię komunikacji, big ideę, skrypty ATL, kampanię digital, social i aktywacje.
           </p>
         </div>
+
+        {history.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">📚 Ostatnio zrobione ({history.length})</h3>
+              {data && (
+                <button onClick={reset} className="btn-ghost text-xs">+ Nowy brief</button>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {history.slice(0, 6).map((h, i) => {
+                const isActive = data && resultRef.current === h.data
+                return (
+                  <button key={h.id || i}
+                    onClick={() => {
+                      setData(h.data)
+                      resultRef.current = h.data
+                      setActiveTab('analysis')
+                      setResultReady(false)
+                    }}
+                    className="text-left p-3 rounded-xl transition-all hover:border-indigo-500/40"
+                    style={{
+                      background: isActive ? 'rgba(99,102,241,0.1)' : 'rgba(255,255,255,0.03)',
+                      border: isActive ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.06)',
+                    }}>
+                    <p className="text-xs font-semibold text-white truncate mb-1">{h.title}</p>
+                    {h.subtitle && <p className="text-[11px] text-indigo-400 truncate mb-2">✨ {h.subtitle}</p>}
+                    <p className="text-[10px] text-gray-600">{new Date(h.createdAt).toLocaleString('pl', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                  </button>
+                )
+              })}
+            </div>
+            {history.length > 6 && (
+              <p className="text-[10px] text-gray-600 mt-2 text-center">+ {history.length - 6} starszych w pamięci</p>
+            )}
+          </div>
+        )}
 
         {!data && (
           <div className="space-y-6">
@@ -320,9 +359,19 @@ export default function WlasnyBriefPage() {
               </div>
             )}
 
+            {loading && streamText && (
+              <div className="p-3 rounded-xl text-xs font-mono text-indigo-300/60 overflow-hidden"
+                style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)' }}>
+                <p className="text-[10px] text-indigo-400 mb-1">Generowanie w toku...</p>
+                <p className="truncate">{streamText}</p>
+              </div>
+            )}
+
             <button onClick={generate} disabled={loading || briefText.length < 50}
               className="btn-primary w-full py-4 text-base disabled:opacity-30">
-              {loading ? `✦ Tworzę opracowanie... ${streamProgress}` : '✦ Stwórz strategię i koncept kreatywny'}
+              {loading
+                ? (streamText ? '✦ Tworzę opracowanie...' : '✦ Analizuję brief...')
+                : '✦ Stwórz strategię i koncept kreatywny'}
             </button>
           </div>
         )}
@@ -674,21 +723,6 @@ export default function WlasnyBriefPage() {
                 </div>
               )}
             </div>
-
-            {history.length > 1 && (
-              <div className="mt-8 pt-6 border-t border-white/10">
-                <h3 className="label mb-3">📚 Historia opracowań</h3>
-                <div className="space-y-2">
-                  {history.slice(1).map((h,i) => (
-                    <button key={i} onClick={() => { setData(h.data); setActiveTab('analysis') }}
-                      className="w-full text-left p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all">
-                      <p className="text-sm text-white font-medium">{h.title}</p>
-                      <p className="text-xs text-gray-500">{h.subtitle} · {new Date(h.createdAt).toLocaleDateString('pl')}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>
