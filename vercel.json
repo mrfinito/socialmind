@@ -1,6 +1,7 @@
 {
   "functions": {
     "src/app/api/rtm/route.ts": { "maxDuration": 300 },
+    "src/app/api/rtm-single-opportunity/route.ts": { "maxDuration": 120 },
     "src/app/api/strategia/route.ts": { "maxDuration": 300 },
     "src/app/api/generate-posts/route.ts": { "maxDuration": 300 },
     "src/app/api/kampania/route.ts": { "maxDuration": 300 },

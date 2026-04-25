@@ -155,24 +155,37 @@ export default function WlasnyBriefPage() {
         buffer = lines.pop() || ''
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue
+          let parsed: { chunk?: string; done?: boolean; data?: BriefResult; error?: string } | null = null
           try {
-            const parsed = JSON.parse(line.slice(6))
-            if (parsed.chunk) {
-              received += parsed.chunk.length
-              setStreamProgress(`Otrzymano ${(received/1024).toFixed(1)} KB...`)
-            }
-            if (parsed.done && parsed.data) {
-              resultRef.current = parsed.data
-              setResultReady(true)
+            parsed = JSON.parse(line.slice(6))
+          } catch (parseErr) {
+            console.error('JSON parse failed for line:', line.slice(0, 100), parseErr)
+            continue
+          }
+          if (!parsed) continue
+          
+          if (parsed.chunk) {
+            received += parsed.chunk.length
+            setStreamProgress(`Otrzymano ${(received/1024).toFixed(1)} KB...`)
+          }
+          if (parsed.done && parsed.data) {
+            console.log('Wlasny brief: stream complete, data received', Object.keys(parsed.data))
+            resultRef.current = parsed.data
+            setResultReady(true)
+            try {
               const entry = historySave<BriefResult>('wlasny-brief', projectId, {
                 title: projectName || 'Brief kampanii',
                 subtitle: parsed.data.bigIdea?.name || 'Opracowanie',
                 data: parsed.data,
               })
               setHistory(prev => [entry, ...prev].slice(0, 10))
+            } catch (histErr) {
+              console.error('History save error:', histErr)
             }
-            if (parsed.error) throw new Error(parsed.error)
-          } catch {}
+          }
+          if (parsed.error) {
+            throw new Error(parsed.error)
+          }
         }
       }
     } catch (e) {

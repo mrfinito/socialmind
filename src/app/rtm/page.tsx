@@ -43,6 +43,7 @@ export default function RtmPage() {
   const [platforms, setPlatforms] = useState<Platform[]>(storePlatforms.length ? storePlatforms : ['facebook','instagram'])
   const [industry, setIndustry] = useState(dna?.industry || '')
   const [loading, setLoading] = useState(false)
+  const [generatingPostsFor, setGeneratingPostsFor] = useState<string | null>(null)
   const [data, setData] = useState<RtmData|null>(null)
   const [error, setError] = useState('')
   const [selected, setSelected] = useState<RtmOpportunity|null>(null)
@@ -63,6 +64,40 @@ export default function RtmPage() {
   function togglePlatform(id: Platform) { setPlatforms(p => p.includes(id) ? p.filter(x=>x!==id) : [...p,id]) }
 
   const [streamProgress, setStreamProgress] = useState('')
+
+  async function generatePostsForOpportunity(opp: RtmOpportunity) {
+    if (!dna) {
+      setError('Brak Brand DNA - przejdź do zakładki "Marka" i uzupełnij')
+      return
+    }
+    setGeneratingPostsFor(opp.id)
+    try {
+      const res = await fetch('/api/rtm-single-opportunity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dna,
+          opportunity: { title: opp.title, why: opp.why, category: opp.category },
+          platforms: storePlatforms?.length ? storePlatforms : ['facebook', 'instagram'],
+        })
+      })
+      const j = await res.json()
+      if (!j.ok) throw new Error(j.error || 'Błąd generowania')
+      // Update selected with generated posts
+      const updatedOpp = { ...opp, posts: j.posts }
+      setSelected(updatedOpp)
+      if (j.posts?.[0]) setSelectedPost(j.posts[0])
+      // Also update in data if exists
+      setData(prev => prev ? {
+        ...prev,
+        opportunities: prev.opportunities.map(o => o.id === opp.id ? updatedOpp : o)
+      } : prev)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Błąd')
+    } finally {
+      setGeneratingPostsFor(null)
+    }
+  }
 
   async function scan() {
     setLoading(true); setError(''); setData(null); setSelected(null); setStreamProgress('')
@@ -233,18 +268,56 @@ export default function RtmPage() {
                 {data.todayCalendar?.length > 0 && (
                   <div className="mt-4">
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-1 mb-2">Kalendarz dziś</p>
-                    {data.todayCalendar.map((item,i) => (
-                      <div key={i} className="p-3 rounded-xl mb-2"
-                        style={{background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.06)'}}>
-                        <div className="flex items-center justify-between mb-1">
-                          <p className="text-xs font-medium text-gray-200">{item.name}</p>
-                          <span className="text-[10px]" style={{color:item.potential==='wysoki'?'#34d399':item.potential==='sredni'?'#fbbf24':'#6b7280'}}>
-                            {item.potential}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-gray-600">{item.idea}</p>
-                      </div>
-                    ))}
+                    {data.todayCalendar.map((item,i) => {
+                      // Try to find matching opportunity (by name match)
+                      const matchingOpp = data.opportunities?.find(o => 
+                        o.title.toLowerCase().includes(item.name.toLowerCase().slice(0, 15)) ||
+                        item.name.toLowerCase().includes(o.title.toLowerCase().slice(0, 15))
+                      )
+                      const isSelected = matchingOpp && selected?.id === matchingOpp.id
+                      
+                      return (
+                        <button key={i} 
+                          onClick={() => {
+                            if (matchingOpp) {
+                              setSelected(matchingOpp)
+                              setSelectedPost(null)
+                            } else {
+                              // Create synthetic opportunity from calendar item
+                              const synthetic: RtmOpportunity = {
+                                id: `cal-${i}`,
+                                title: item.name,
+                                category: item.type,
+                                relevance: item.potential === 'wysoki' ? 'wysokie' : item.potential === 'sredni' ? 'srednie' : 'niskie',
+                                why: item.idea,
+                                risk: 'Brak — sprawdź czy temat pasuje do marki',
+                                urgency: 'dzisiaj',
+                                posts: [],
+                              }
+                              setSelected(synthetic)
+                              setSelectedPost(null)
+                            }
+                          }}
+                          className="w-full text-left p-3 rounded-xl mb-2 transition-all hover:border-indigo-500/30"
+                          style={{
+                            background: isSelected ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.02)',
+                            border: isSelected ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.06)',
+                          }}>
+                          <div className="flex items-center justify-between mb-1 gap-2">
+                            <p className="text-xs font-medium text-gray-200">{item.name}</p>
+                            <span className="text-[10px] shrink-0" style={{color:item.potential==='wysoki'?'#34d399':item.potential==='sredni'?'#fbbf24':'#6b7280'}}>
+                              {item.potential}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-gray-600 mb-1">{item.idea}</p>
+                          {matchingOpp ? (
+                            <p className="text-[10px] text-indigo-400">→ Zobacz gotowe posty</p>
+                          ) : (
+                            <p className="text-[10px] text-gray-500">→ Kliknij aby przygotować posty</p>
+                          )}
+                        </button>
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -285,6 +358,20 @@ export default function RtmPage() {
                     {/* Platform posts */}
                     <div>
                       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Gotowe posty RTM</p>
+                      
+                      {(!selected.posts || selected.posts.length === 0) ? (
+                        <div className="card text-center py-8">
+                          <p className="text-3xl mb-3">📝</p>
+                          <p className="text-sm text-white font-medium mb-1">Brak gotowych postów dla tej okazji</p>
+                          <p className="text-xs text-gray-500 mb-4">Wygeneruj profesjonalne posty na podstawie tej okazji kalendarzowej</p>
+                          <button onClick={() => generatePostsForOpportunity(selected)}
+                            disabled={generatingPostsFor === selected.id}
+                            className="btn-primary text-sm px-6">
+                            {generatingPostsFor === selected.id ? '✦ Generuję posty...' : '✦ Wygeneruj posty dla tej okazji'}
+                          </button>
+                        </div>
+                      ) : (
+                        <>
                       <div className="flex gap-2 mb-4">
                         {(selected.posts||[]).map((post,i) => (
                           <button key={i} onClick={() => setSelectedPost(post)}
@@ -368,6 +455,8 @@ export default function RtmPage() {
                             </div>
                           )}
                         </div>
+                      )}
+                        </>
                       )}
                     </div>
                   </div>
