@@ -89,6 +89,8 @@ export default function WlasnyBriefPage() {
   const [data, setData] = useState<BriefResult | null>(null)
   const [activeTab, setActiveTab] = useState('analysis')
   const [history, setHistory] = useState<HistoryEntry<BriefResult>[]>([])
+  const [resultReady, setResultReady] = useState(false)
+  const resultRef = useRef<BriefResult | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   
   useEffect(() => {
@@ -126,6 +128,8 @@ export default function WlasnyBriefPage() {
     setError('')
     setStreamProgress('')
     setData(null)
+    setResultReady(false)
+    resultRef.current = null
 
     try {
       const res = await fetch('/api/wlasny-brief', {
@@ -158,8 +162,8 @@ export default function WlasnyBriefPage() {
               setStreamProgress(`Otrzymano ${(received/1024).toFixed(1)} KB...`)
             }
             if (parsed.done && parsed.data) {
-              setData(parsed.data)
-              setActiveTab('analysis')
+              resultRef.current = parsed.data
+              setResultReady(true)
               const entry = historySave<BriefResult>('wlasny-brief', projectId, {
                 title: projectName || 'Brief kampanii',
                 subtitle: parsed.data.bigIdea?.name || 'Opracowanie',
@@ -279,6 +283,29 @@ export default function WlasnyBriefPage() {
             )}
 
             {error && <div className="card bg-red-500/5 border-red-500/20 text-red-300 text-sm">{error}</div>}
+
+            {resultReady && !data && (
+              <div className="flex items-center gap-3 p-4 rounded-xl"
+                style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)' }}>
+                <span className="text-2xl">✅</span>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-white">Opracowanie gotowe!</p>
+                  <p className="text-xs text-gray-500">
+                    {resultRef.current?.bigIdea?.name && `Big Idea: ${resultRef.current.bigIdea.name}`}
+                  </p>
+                </div>
+                <button onClick={() => {
+                    if (resultRef.current) {
+                      setData(resultRef.current)
+                      setActiveTab('analysis')
+                      setResultReady(false)
+                    }
+                  }}
+                  className="btn-primary px-6">
+                  Pokaż koncepcję →
+                </button>
+              </div>
+            )}
 
             <button onClick={generate} disabled={loading || briefText.length < 50}
               className="btn-primary w-full py-4 text-base disabled:opacity-30">
