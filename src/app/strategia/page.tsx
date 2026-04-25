@@ -378,15 +378,35 @@ export default function StrategiaPage() {
                 </div>
                 <div className="card">
                   <h3 className="text-sm font-semibold text-white mb-4">🎯 KPI</h3>
-                  <div className="space-y-2">
-                    {(data.kpis||[]).map((kpi,i) => (
-                      <div key={i} className="flex items-center gap-4 py-2.5 border-b border-white/5 last:border-0">
-                        <p className="text-xs font-medium text-gray-300 flex-1">{kpi.metric}</p>
-                        <p className="text-xs font-bold text-indigo-300 w-24 text-right">{kpi.target}</p>
-                        <p className="text-xs text-gray-600 w-24 text-right">{kpi.timeline}</p>
-                        <p className="text-xs text-gray-600 flex-1">{kpi.howToMeasure}</p>
-                      </div>
-                    ))}
+                  <div className="overflow-x-auto -mx-2">
+                    <table className="w-full text-xs" style={{ minWidth: 720 }}>
+                      <thead>
+                        <tr className="border-b border-white/10">
+                          <th className="text-left font-medium text-gray-500 uppercase text-[10px] tracking-wider py-2 px-2 w-[22%]">Wskaźnik</th>
+                          <th className="text-left font-medium text-gray-500 uppercase text-[10px] tracking-wider py-2 px-2 w-[33%]">Cel</th>
+                          <th className="text-left font-medium text-gray-500 uppercase text-[10px] tracking-wider py-2 px-2 w-[12%] whitespace-nowrap">Horyzont</th>
+                          <th className="text-left font-medium text-gray-500 uppercase text-[10px] tracking-wider py-2 px-2 w-[33%]">Sposób pomiaru</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(data.kpis||[]).map((kpi,i) => (
+                          <tr key={i} className="border-b border-white/5 last:border-0 align-top">
+                            <td className="py-3 px-2">
+                              <p className="text-xs font-medium text-gray-300 leading-relaxed">{kpi.metric}</p>
+                            </td>
+                            <td className="py-3 px-2">
+                              <p className="text-xs font-semibold text-indigo-300 leading-relaxed">{kpi.target}</p>
+                            </td>
+                            <td className="py-3 px-2">
+                              <p className="text-xs text-gray-500 leading-relaxed whitespace-nowrap">{kpi.timeline}</p>
+                            </td>
+                            <td className="py-3 px-2">
+                              <p className="text-xs text-gray-500 leading-relaxed">{kpi.howToMeasure}</p>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
