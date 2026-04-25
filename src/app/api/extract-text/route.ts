@@ -22,12 +22,10 @@ export async function POST(req: NextRequest) {
       text = buffer.toString('utf-8')
     } else if (filename.endsWith('.pdf')) {
       // Dynamic import to avoid bundling issues
-      // @ts-expect-error - pdf-parse types not yet installed
       const pdfParse = (await import('pdf-parse')).default
       const data = await pdfParse(buffer)
       text = data.text
     } else if (filename.endsWith('.docx')) {
-      // @ts-expect-error - mammoth types not yet installed
       const mammoth = await import('mammoth')
       const result = await mammoth.extractRawText({ buffer })
       text = result.value
