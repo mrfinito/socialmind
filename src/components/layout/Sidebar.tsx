@@ -20,6 +20,7 @@ export default function Sidebar() {
         { href: '/asystent', icon: '🤖', label: 'Asystent AI', show: true },
         { href: '/brief',    icon: '📋', label: 'Briefy klientów', show: true },
         { href: '/wlasny-brief', icon: '📂', label: 'Własny brief', show: true },
+        { href: '/grafika',  icon: '🖼️', label: 'Stwórz grafikę', show: true },
         perms.can_generate_posts && { href: '/generuj',    icon: '✦', label: 'Generuj posty' },
         { href: '/biblioteka', icon: '📚', label: 'Biblioteka' },
         { href: '/scheduler',  icon: '📅', label: 'Scheduler' },

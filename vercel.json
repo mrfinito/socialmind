@@ -6,6 +6,7 @@
     "src/app/api/kampania/route.ts": { "maxDuration": 300 },
     "src/app/api/wlasny-brief/route.ts": { "maxDuration": 300 },
     "src/app/api/extract-text/route.ts": { "maxDuration": 60 },
+    "src/app/api/refine-image-prompt/route.ts": { "maxDuration": 60 },
     "src/app/api/generate-image/route.ts": { "maxDuration": 120 },
     "src/app/api/persona/route.ts": { "maxDuration": 120 },
     "src/app/api/repurpose/route.ts": { "maxDuration": 120 },

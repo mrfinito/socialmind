@@ -5,6 +5,7 @@ import { useStore } from '@/lib/store'
 import { PLATFORMS } from '@/lib/types'
 import type { Platform } from '@/lib/types'
 import PlatformIcon from '@/components/PlatformIcon'
+import ImageGenerator from '@/components/ImageGenerator'
 import { historyLoad, historySave } from '@/lib/history'
 import type { HistoryEntry } from '@/lib/history'
 
@@ -357,7 +358,13 @@ export default function RtmPage() {
                             <div className="p-3 rounded-xl"
                               style={{background:'rgba(168,85,247,0.06)',border:'1px solid rgba(168,85,247,0.15)'}}>
                               <p className="text-[10px] text-purple-400 mb-1">🎨 Pomysł na grafikę</p>
-                              <p className="text-xs text-gray-300">{selectedPost.imageIdea}</p>
+                              <p className="text-xs text-gray-300 mb-3">{selectedPost.imageIdea}</p>
+                              <ImageGenerator
+                                key={`${selected.id}-${selectedPost.platform}`}
+                                initialPrompt={selectedPost.imageIdea}
+                                platform={selectedPost.platform}
+                                size="md"
+                              />
                             </div>
                           )}
                         </div>

@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 import AppShell from '@/components/layout/AppShell'
 import { useStore } from '@/lib/store'
 import { historyLoad, historySave } from '@/lib/history'
+import ImageGenerator from '@/components/ImageGenerator'
 import type { HistoryEntry } from '@/lib/history'
 
 interface BriefResult {
@@ -418,7 +419,8 @@ export default function WlasnyBriefPage() {
                         {data.atl.ooh.headlines?.map((h,i) => <li key={i} className="text-base font-bold text-white">&ldquo;{h}&rdquo;</li>)}
                       </ul>
                       <p className="text-xs text-gray-400 mb-2"><span className="text-gray-500">Wizual:</span> {data.atl.ooh.visualDescription}</p>
-                      <p className="text-xs text-gray-400"><span className="text-gray-500">Lokalizacje:</span> {data.atl.ooh.placements}</p>
+                      <p className="text-xs text-gray-400 mb-3"><span className="text-gray-500">Lokalizacje:</span> {data.atl.ooh.placements}</p>
+                      <ImageGenerator initialPrompt={data.atl.ooh.visualDescription} platform="facebook" size="md" />
                     </div>
                   )}
                 </div>
@@ -490,7 +492,8 @@ export default function WlasnyBriefPage() {
                         <div key={i} className="p-3 rounded-lg bg-white/5 mb-2">
                           <p className="text-[10px] uppercase tracking-wider text-indigo-400 mb-1">{p.type}</p>
                           <p className="text-sm text-gray-200 mb-2">{p.text}</p>
-                          <p className="text-xs text-gray-500">📷 {p.visualIdea}</p>
+                          <p className="text-xs text-gray-500 mb-3">📷 {p.visualIdea}</p>
+                          <ImageGenerator key={`fb-${i}`} initialPrompt={p.visualIdea} platform="facebook" size="sm" />
                         </div>
                       ))}
                     </div>
@@ -504,7 +507,8 @@ export default function WlasnyBriefPage() {
                           <p className="text-[10px] uppercase tracking-wider text-indigo-400 mb-1">{p.type}</p>
                           <p className="text-sm text-gray-300 italic mb-1">{p.concept}</p>
                           <p className="text-sm text-gray-200 mb-2">{p.caption}</p>
-                          <p className="text-xs text-gray-500">📷 {p.visualIdea}</p>
+                          <p className="text-xs text-gray-500 mb-3">📷 {p.visualIdea}</p>
+                          <ImageGenerator key={`ig-${i}`} initialPrompt={p.visualIdea} platform="instagram" size="sm" />
                         </div>
                       ))}
                     </div>
