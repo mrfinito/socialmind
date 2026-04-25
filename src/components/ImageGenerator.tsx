@@ -20,6 +20,7 @@ interface Props {
   brandingPromptSuffix?: string
   size?: 'sm' | 'md' | 'lg'
   showProviderToggle?: boolean
+  onImageGenerated?: (data: { url: string; prompt: string; platform: string; provider: string }) => void
 }
 
 function Spinner() {
@@ -38,6 +39,7 @@ export default function ImageGenerator({
   brandingPromptSuffix = '',
   size = 'md',
   showProviderToggle = true,
+  onImageGenerated,
 }: Props) {
   const { dna } = useStore()
   const visuals = dna?.visuals
@@ -80,6 +82,15 @@ export default function ImageGenerator({
         setEditedUrl(null)
         return next
       })
+      
+      if (onImageGenerated) {
+        onImageGenerated({
+          url: data.url,
+          prompt: data.finalPrompt || fullPrompt,
+          platform,
+          provider,
+        })
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Błąd')
     } finally {
