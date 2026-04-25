@@ -84,6 +84,27 @@ export default function ImageGenerator({
     setRevisionText('')
   }
 
+  async function handleDownload() {
+    if (!activeIteration) return
+    try {
+      const response = await fetch(activeIteration.url)
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const ext = blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg'
+      const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+      a.download = `grafika-${platform}-v${activeIdx + 1}-${ts}.${ext}`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      // fallback - open in new tab
+      window.open(activeIteration.url, '_blank')
+    }
+  }
+
   return (
     <div className="space-y-2">
       {!activeIteration ? (
@@ -127,13 +148,27 @@ export default function ImageGenerator({
                 <span className="ml-1.5 font-semibold text-indigo-400">v{activeIdx + 1}/{iterations.length}</span>
               )}
             </div>
-            <a href={activeIteration.url} target="_blank" rel="noopener noreferrer"
-              className="absolute top-2 right-2 bg-black/60 backdrop-blur text-gray-300 text-xs px-2.5 py-1 rounded-lg border border-white/10 hover:bg-black/80">
-              ↗
-            </a>
+            <div className="absolute top-2 right-2 flex gap-1.5">
+              <button onClick={handleDownload}
+                className="bg-black/60 backdrop-blur text-gray-300 text-xs px-2.5 py-1 rounded-lg border border-white/10 hover:bg-black/80 transition-all"
+                title="Pobierz na komputer">
+                ⬇
+              </button>
+              <a href={activeIteration.url} target="_blank" rel="noopener noreferrer"
+                className="bg-black/60 backdrop-blur text-gray-300 text-xs px-2.5 py-1 rounded-lg border border-white/10 hover:bg-black/80"
+                title="Otwórz w nowej karcie">
+                ↗
+              </a>
+            </div>
           </div>
 
           <div className="flex gap-2">
+            <button onClick={handleDownload}
+              className="text-xs py-2 px-3 rounded-lg transition-all"
+              style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', color: '#6ee7b7' }}
+              title="Pobierz na komputer">
+              ⬇ Pobierz
+            </button>
             <button onClick={() => setShowRevise(true)} disabled={generating}
               className="flex-1 text-xs py-2 rounded-lg transition-all disabled:opacity-50"
               style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)', color: '#a5b4fc' }}>

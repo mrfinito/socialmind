@@ -60,6 +60,26 @@ function PostCard({
   const [showReviseModal, setShowReviseModal] = useState(false)
   const [revisionText, setRevisionText] = useState('')
 
+  async function handleDownload() {
+    if (!displayImage) return
+    try {
+      const response = await fetch(displayImage)
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const ext = blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg'
+      const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+      a.download = `${platform.id}-${ts}.${ext}`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      window.open(displayImage, '_blank')
+    }
+  }
+
   function copy(text: string, setCb: (v: boolean) => void) {
     navigator.clipboard.writeText(text)
     setCb(true)
@@ -107,8 +127,14 @@ function PostCard({
                   className="bg-white/8/90 text-gray-300 text-xs px-2.5 py-1 rounded-lg border border-white/10 hover:bg-white/8 transition-all">
                   ✏️ Edytuj
                 </button>
+                <button onClick={handleDownload}
+                  className="bg-white/8/90 text-gray-300 text-xs px-2.5 py-1 rounded-lg border border-white/10 hover:bg-white/8 transition-all"
+                  title="Pobierz">
+                  ⬇
+                </button>
                 <a href={displayImage} target="_blank" rel="noopener noreferrer"
-                  className="bg-white/8/90 text-gray-300 text-xs px-2.5 py-1 rounded-lg border border-white/10 hover:bg-white/8 transition-all">
+                  className="bg-white/8/90 text-gray-300 text-xs px-2.5 py-1 rounded-lg border border-white/10 hover:bg-white/8 transition-all"
+                  title="Otwórz">
                   ↗
                 </a>
               </div>
@@ -116,6 +142,11 @@ function PostCard({
 
             {/* Action buttons */}
             <div className="flex gap-2 mt-2">
+              <button onClick={handleDownload}
+                className="text-xs py-2 px-3 rounded-lg transition-all"
+                style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', color: '#6ee7b7' }}>
+                ⬇ Pobierz
+              </button>
               <button onClick={() => setShowReviseModal(true)} disabled={generatingImage}
                 className="flex-1 text-xs py-2 px-3 rounded-lg border transition-all disabled:opacity-50"
                 style={{ background: 'rgba(99,102,241,0.12)', borderColor: 'rgba(99,102,241,0.3)', color: '#a5b4fc' }}>
