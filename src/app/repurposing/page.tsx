@@ -1,10 +1,12 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import AppShell from '@/components/layout/AppShell'
 import { useStore } from '@/lib/store'
 import { PLATFORMS } from '@/lib/types'
 import type { Platform } from '@/lib/types'
 import PlatformIcon from '@/components/PlatformIcon'
+import { historyLoad, historySave } from '@/lib/history'
+import type { HistoryEntry } from '@/lib/history'
 
 interface PlatformPost {
   text: string; hook: string; hashtags: string[]
@@ -28,7 +30,9 @@ const CONTENT_TYPES = [
 ]
 
 export default function RepurposingPage() {
-  const { dna, projectDrafts } = useStore()
+  const { dna, projectDrafts, activeProject } = useStore()
+  const projectId = activeProject?.id || 'default'
+  const [history, setHistory] = useState<HistoryEntry<{ data: RepurposeData; content: string; contentType: string }>[]>([])
   const [content, setContent] = useState('')
   const [contentType, setContentType] = useState('artykul')
   const [platforms, setPlatforms] = useState<Platform[]>(['facebook','instagram','linkedin'])
@@ -38,6 +42,17 @@ export default function RepurposingPage() {
   const [copied, setCopied] = useState<string|null>(null)
   const [expandedPlt, setExpandedPlt] = useState<Platform|null>(null)
   const [useVoice, setUseVoice] = useState(true)
+
+  useEffect(() => {
+    setHistory(historyLoad<{ data: RepurposeData; content: string; contentType: string }>('repurposing', projectId))
+  }, [projectId])
+
+  function loadFromHistory(entry: HistoryEntry<{ data: RepurposeData; content: string; contentType: string }>) {
+    setData(entry.data.data)
+    setContent(entry.data.content)
+    setContentType(entry.data.contentType)
+    setExpandedPlt(Object.keys(entry.data.data.posts || {})[0] as Platform || null)
+  }
 
   // Extract voice samples from last posts
   const voiceSamples = projectDrafts
@@ -70,6 +85,12 @@ export default function RepurposingPage() {
       if (!res.ok) throw new Error(j.error)
       setData(j.data)
       setExpandedPlt(platforms[0])
+      const entry = historySave<{ data: RepurposeData; content: string; contentType: string }>('repurposing', projectId, {
+        title: contentType === 'artykul' ? 'Artykuł' : contentType === 'podcast' ? 'Podcast' : contentType === 'video' ? 'Video' : 'Treść',
+        subtitle: content.slice(0, 60) + (content.length > 60 ? '...' : ''),
+        data: { data: j.data, content, contentType },
+      })
+      setHistory(prev => [entry, ...prev].slice(0, 20))
     } catch(e:unknown) { setError(e instanceof Error ? e.message : 'Błąd') }
     finally { setLoading(false) }
   }
@@ -93,6 +114,29 @@ export default function RepurposingPage() {
             Artykuł, podcast, wideo → posty na wszystkie platformy zachowując unikalny głos Twojej marki
           </p>
         </div>
+
+        {history.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">📚 Ostatnio zrobione ({history.length})</h3>
+              {data && <button onClick={() => setData(null)} className="btn-ghost text-xs">+ Nowe repurposing</button>}
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {history.slice(0, 6).map((h) => (
+                <button key={h.id} onClick={() => loadFromHistory(h)}
+                  className="text-left p-3 rounded-xl transition-all hover:border-indigo-500/40"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <p className="text-xs font-semibold text-white mb-1">{h.title}</p>
+                  {h.subtitle && <p className="text-[11px] text-gray-500 line-clamp-2 mb-2">{h.subtitle}</p>}
+                  <p className="text-[10px] text-gray-600">{new Date(h.createdAt).toLocaleString('pl', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                </button>
+              ))}
+            </div>
+            {history.length > 6 && (
+              <p className="text-[10px] text-gray-600 mt-2 text-center">+ {history.length - 6} starszych w pamięci</p>
+            )}
+          </div>
+        )}
 
         {!data && (
           <div className="card space-y-5">

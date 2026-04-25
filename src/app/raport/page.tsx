@@ -1,9 +1,11 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import AppShell from '@/components/layout/AppShell'
 import { useStore } from '@/lib/store'
 import { PLATFORMS } from '@/lib/types'
 import PlatformIcon from '@/components/PlatformIcon'
+import { historyLoad, historySave } from '@/lib/history'
+import type { HistoryEntry } from '@/lib/history'
 
 interface ReportData {
   executiveSummary: string
@@ -20,12 +22,24 @@ function Dots() { return <span className="inline-flex gap-0.5">{[0,1,2].map(i=><
 
 export default function RaportPage() {
   const { projectDrafts, activeProject } = useStore()
+  const projectId = activeProject?.id || 'default'
   const now = new Date()
   const [selMonth, setSelMonth] = useState(now.getMonth())
   const [selYear, setSelYear] = useState(now.getFullYear())
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<ReportData|null>(null)
   const [error, setError] = useState('')
+  const [history, setHistory] = useState<HistoryEntry<{ data: ReportData; period: string; month: number; year: number }>[]>([])
+
+  useEffect(() => {
+    setHistory(historyLoad<{ data: ReportData; period: string; month: number; year: number }>('raport', projectId))
+  }, [projectId])
+
+  function loadFromHistory(entry: HistoryEntry<{ data: ReportData; period: string; month: number; year: number }>) {
+    setData(entry.data.data)
+    setSelMonth(entry.data.month)
+    setSelYear(entry.data.year)
+  }
 
   const periodDrafts = projectDrafts.filter(d => {
     const date = new Date(d.createdAt)
@@ -42,6 +56,13 @@ export default function RaportPage() {
       const j = await res.json()
       if (!res.ok) throw new Error(j.error)
       setData(j.data)
+      const period = `${MONTHS[selMonth]} ${selYear}`
+      const entry = historySave<{ data: ReportData; period: string; month: number; year: number }>('raport', projectId, {
+        title: `Raport — ${period}`,
+        subtitle: `${periodDrafts.length} ${periodDrafts.length === 1 ? 'post' : 'postów'} · ${activeProject?.name || ''}`,
+        data: { data: j.data, period, month: selMonth, year: selYear },
+      })
+      setHistory(prev => [entry, ...prev].slice(0, 20))
     } catch(e:unknown) { setError(e instanceof Error ? e.message : 'Błąd') }
     finally { setLoading(false) }
   }
@@ -68,6 +89,29 @@ export default function RaportPage() {
           <h1 className="text-2xl font-semibold text-white">📊 Raport miesięczny</h1>
           <p className="text-gray-500 text-sm mt-1">Generuj profesjonalne podsumowanie dla klienta — gotowe do wysłania</p>
         </div>
+
+        {history.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">📚 Ostatnie raporty ({history.length})</h3>
+              {data && <button onClick={() => setData(null)} className="btn-ghost text-xs">+ Nowy raport</button>}
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {history.slice(0, 6).map((h) => (
+                <button key={h.id} onClick={() => loadFromHistory(h)}
+                  className="text-left p-3 rounded-xl transition-all hover:border-indigo-500/40"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <p className="text-xs font-semibold text-white mb-1">{h.title}</p>
+                  {h.subtitle && <p className="text-[11px] text-gray-500 mb-2">{h.subtitle}</p>}
+                  <p className="text-[10px] text-gray-600">{new Date(h.createdAt).toLocaleString('pl', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                </button>
+              ))}
+            </div>
+            {history.length > 6 && (
+              <p className="text-[10px] text-gray-600 mt-2 text-center">+ {history.length - 6} starszych w pamięci</p>
+            )}
+          </div>
+        )}
 
         {/* Config */}
         <div className="card mb-6">

@@ -5,6 +5,8 @@ import { useStore } from '@/lib/store'
 import { PLATFORMS } from '@/lib/types'
 import type { Platform } from '@/lib/types'
 import PlatformIcon from '@/components/PlatformIcon'
+import { historyLoad, historySave, historyDelete } from '@/lib/history'
+import type { HistoryEntry } from '@/lib/history'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -46,12 +48,20 @@ export default function CopywriterPage() {
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState<number|null>(null)
   const [showPlatforms, setShowPlatforms] = useState(false)
+  const [history, setHistory] = useState<HistoryEntry<{ messages: Message[]; platform: Platform }>[]>([])
+  const [activeChatId, setActiveChatId] = useState<string | null>(null)
+  const [showHistory, setShowHistory] = useState(false)
+  const projectId = activeProject?.id || 'default'
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
+
+  useEffect(() => {
+    setHistory(historyLoad<{ messages: Message[]; platform: Platform }>('copywriter', projectId))
+  }, [projectId])
 
   // Welcome message
   useEffect(() => {
@@ -87,7 +97,24 @@ export default function CopywriterPage() {
       })
       const j = await res.json()
       if (!res.ok) throw new Error(j.error)
-      setMessages(prev => [...prev, { role: 'assistant', content: j.text, ts: Date.now() }])
+      const updated: Message[] = [...newMessages, { role: 'assistant', content: j.text, ts: Date.now() }]
+      setMessages(updated)
+      // Save snapshot to history (ignore welcome-only snapshots)
+      const userMessages = updated.filter(m => m.role === 'user')
+      if (userMessages.length > 0) {
+        const firstUserText = userMessages[0].content.slice(0, 60)
+        const entry = historySave<{ messages: Message[]; platform: Platform }>('copywriter', projectId, {
+          title: firstUserText + (firstUserText.length === 60 ? '...' : ''),
+          subtitle: `${platform} · ${updated.filter(m => m.role === 'user').length} wiadomości`,
+          data: { messages: updated, platform },
+        })
+        setActiveChatId(entry.id)
+        setHistory(prev => {
+          // Replace existing entry if same chat session, else add new
+          const filtered = activeChatId ? prev.filter(h => h.id !== activeChatId) : prev
+          return [entry, ...filtered].slice(0, 20)
+        })
+      }
     } catch (e: unknown) {
       setMessages(prev => [...prev, {
         role: 'assistant',
@@ -107,6 +134,7 @@ export default function CopywriterPage() {
   }
 
   function clearChat() {
+    setActiveChatId(null)
     setMessages([])
     setTimeout(() => {
       setMessages([{
@@ -115,6 +143,19 @@ export default function CopywriterPage() {
         ts: Date.now()
       }])
     }, 100)
+  }
+
+  function loadFromHistory(entry: HistoryEntry<{ messages: Message[]; platform: Platform }>) {
+    setActiveChatId(entry.id)
+    setMessages(entry.data.messages)
+    setPlatform(entry.data.platform)
+    setShowHistory(false)
+  }
+
+  function deleteFromHistory(id: string) {
+    historyDelete('copywriter', projectId, id)
+    setHistory(historyLoad<{ messages: Message[]; platform: Platform }>('copywriter', projectId))
+    if (activeChatId === id) clearChat()
   }
 
   const currentPlatform = PLATFORMS.find(p => p.id === platform)
@@ -163,7 +204,16 @@ export default function CopywriterPage() {
                 </div>
               )}
             </div>
-            <button onClick={clearChat} className="btn-ghost text-xs px-3 py-2">🗑 Wyczyść</button>
+            <button onClick={() => setShowHistory(s => !s)}
+              className="text-xs px-3 py-2 rounded-xl transition-all"
+              style={{
+                background: showHistory ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.05)',
+                border: showHistory ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.08)',
+                color: showHistory ? '#a5b4fc' : '#9ca3af',
+              }}>
+              📚 Historia ({history.length})
+            </button>
+            <button onClick={clearChat} className="btn-ghost text-xs px-3 py-2">+ Nowy</button>
           </div>
         </div>
 
@@ -180,6 +230,37 @@ export default function CopywriterPage() {
             ))}
           </div>
         )}
+
+        {/* Body — chat + optional history sidebar */}
+        <div className="flex-1 flex overflow-hidden">
+          {showHistory && (
+            <div className="w-72 shrink-0 overflow-y-auto py-4 px-3 space-y-2"
+              style={{ background: '#0a0d14', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
+              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider px-2 mb-2">Twoje rozmowy</p>
+              {history.length === 0 ? (
+                <p className="text-xs text-gray-600 px-2 py-4 text-center">Brak zapisanych rozmów</p>
+              ) : history.map(h => {
+                const isActive = h.id === activeChatId
+                return (
+                  <div key={h.id} className="group relative">
+                    <button onClick={() => loadFromHistory(h)}
+                      className="w-full text-left p-3 rounded-lg transition-all"
+                      style={{
+                        background: isActive ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.03)',
+                        border: isActive ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.06)',
+                      }}>
+                      <p className="text-xs text-white font-medium truncate mb-1">{h.title}</p>
+                      <p className="text-[10px] text-gray-500">{h.subtitle}</p>
+                      <p className="text-[10px] text-gray-700 mt-1">{new Date(h.createdAt).toLocaleString('pl', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); deleteFromHistory(h.id) }}
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 text-xs"
+                      title="Usuń">🗑</button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
@@ -229,6 +310,7 @@ export default function CopywriterPage() {
             </div>
           )}
           <div ref={bottomRef}/>
+        </div>
         </div>
 
         {/* Input */}
