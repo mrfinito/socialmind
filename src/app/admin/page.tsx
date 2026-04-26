@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import AppShell from '@/components/layout/AppShell'
 
 // ─── Types ────────────────────────────────────────────────────
@@ -210,6 +210,135 @@ function PermissionsModal({ user, onSave, onClose }: {
 }
 
 // ─── Main Page ────────────────────────────────────────────────
+// ─── Chat Modal ─────────────────────────────────
+interface ChatMessage {
+  id: string
+  sender_id: string
+  recipient_id: string
+  content: string
+  read_at: string | null
+  created_at: string
+}
+
+function ChatModal({ user, onClose }: { user: UserRow; onClose: () => void }) {
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [sending, setSending] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string>('')
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    
+    async function load() {
+      // Get my ID first
+      const supabase = (await import('@/lib/supabase')).createClient()
+      const { data: { user: me } } = await supabase.auth.getUser()
+      if (!cancelled && me) setCurrentUserId(me.id)
+      
+      const res = await fetch(`/api/admin/chat?with=${user.id}`)
+      const j = await res.json()
+      if (!cancelled && j.ok) {
+        setMessages(j.messages)
+        setLoading(false)
+      }
+    }
+    load()
+
+    // Poll for new messages every 5s while modal open
+    const interval = setInterval(load, 5000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [user.id])
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  async function send() {
+    if (!input.trim() || sending) return
+    setSending(true)
+    try {
+      const res = await fetch('/api/admin/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipientId: user.id, content: input.trim() })
+      })
+      const j = await res.json()
+      if (j.ok && j.message) {
+        setMessages(prev => [...prev, j.message])
+        setInput('')
+      }
+    } finally { setSending(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/70" onClick={onClose}>
+      <div className="rounded-2xl w-full max-w-2xl flex flex-col"
+        style={{ background: '#0f1423', border: '1px solid rgba(255,255,255,0.1)', height: '600px' }}
+        onClick={e => e.stopPropagation()}>
+        <div className="p-5 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+          <div>
+            <p className="text-xs text-indigo-400 font-medium mb-0.5">💬 Wiadomość do użytkownika</p>
+            <h2 className="text-lg font-semibold text-white">{user.email}</h2>
+          </div>
+          <button onClick={onClose} className="text-gray-500 hover:text-white text-xl w-8 h-8 flex items-center justify-center">×</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-3">
+          {loading ? (
+            <p className="text-sm text-gray-500 text-center py-8">Ładowanie...</p>
+          ) : messages.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-4xl mb-3">💬</p>
+              <p className="text-sm text-gray-400">Brak wiadomości</p>
+              <p className="text-xs text-gray-600 mt-1">Napisz pierwszą wiadomość poniżej</p>
+            </div>
+          ) : (
+            messages.map(m => {
+              const isMine = m.sender_id === currentUserId
+              return (
+                <div key={m.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+                  <div className="max-w-[70%] rounded-2xl px-4 py-2.5"
+                    style={{
+                      background: isMine ? '#6366f1' : 'rgba(255,255,255,0.06)',
+                      border: isMine ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                    }}>
+                    <p className="text-sm whitespace-pre-wrap leading-relaxed text-white">{m.content}</p>
+                    <p className="text-[10px] mt-1" style={{ color: isMine ? 'rgba(255,255,255,0.7)' : '#6b7280' }}>
+                      {new Date(m.created_at).toLocaleString('pl', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      {isMine && m.read_at && ' · ✓✓'}
+                    </p>
+                  </div>
+                </div>
+              )
+            })
+          )}
+          <div ref={bottomRef}/>
+        </div>
+
+        <div className="p-4" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          <div className="flex gap-2">
+            <textarea value={input} onChange={e => setInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+              placeholder="Napisz wiadomość..."
+              rows={1}
+              className="flex-1 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-indigo-500 outline-none resize-none"
+              style={{ minHeight: 44, maxHeight: 120 }} />
+            <button onClick={send} disabled={sending || !input.trim()}
+              className="px-5 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-30"
+              style={{ background: '#6366f1', color: 'white' }}>
+              {sending ? '...' : 'Wyślij'}
+            </button>
+          </div>
+          <p className="text-[10px] text-gray-600 mt-2">Enter = wyślij · Shift+Enter = nowa linia</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Admin Page ─────────────────────────────────
 export default function AdminPage() {
   const [users, setUsers] = useState<UserRow[]>([])
   const [invites, setInvites] = useState<Invite[]>([])
@@ -218,6 +347,8 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<'users'|'invites'>('users')
   const [search, setSearch] = useState('')
   const [editingUser, setEditingUser] = useState<UserRow|null>(null)
+  const [chatUser, setChatUser] = useState<UserRow|null>(null)
+  const [deletingUser, setDeletingUser] = useState<string|null>(null)
 
   // Invite form
   const [invEmail, setInvEmail] = useState('')
@@ -270,6 +401,25 @@ export default function AdminPage() {
       loadData()
     } catch(e:unknown) { alert(e instanceof Error ? e.message : 'Błąd') }
     finally { setInvLoading(false) }
+  }
+
+  async function deleteUser(u: UserRow) {
+    if (!confirm(`Czy na pewno chcesz usunąć użytkownika ${u.email}?\n\nTa operacja jest nieodwracalna i usunie wszystkie dane użytkownika (projekty, posty, materiały itp.).`)) return
+    setDeletingUser(u.id)
+    try {
+      const res = await fetch('/api/admin/delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: u.id })
+      })
+      const j = await res.json()
+      if (!j.ok) throw new Error(j.error)
+      setUsers(prev => prev.filter(x => x.id !== u.id))
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Błąd')
+    } finally {
+      setDeletingUser(null)
+    }
   }
 
   async function updatePlan(userId: string, plan: string) {
@@ -340,6 +490,10 @@ export default function AdminPage() {
           onSave={savePermissions}
           onClose={() => setEditingUser(null)}
         />
+      )}
+
+      {chatUser && (
+        <ChatModal user={chatUser} onClose={() => setChatUser(null)} />
       )}
 
       <div className="px-8 py-8 max-w-6xl">
@@ -458,6 +612,30 @@ export default function AdminPage() {
                             color: u.profile?.is_admin?'#fbbf24':'#6b7280',
                           }}>
                           {u.profile?.is_admin?'★ Admin':'Admin'}
+                        </button>
+
+                        {/* Chat */}
+                        <button onClick={() => setChatUser(u)}
+                          title="Wyślij wiadomość"
+                          className="text-xs px-2.5 py-1.5 rounded-xl border transition-all"
+                          style={{
+                            background: 'rgba(99,102,241,0.08)',
+                            borderColor: 'rgba(99,102,241,0.25)',
+                            color: '#a5b4fc',
+                          }}>
+                          💬
+                        </button>
+
+                        {/* Delete */}
+                        <button onClick={() => deleteUser(u)}
+                          title="Usuń użytkownika"
+                          className="text-xs px-2.5 py-1.5 rounded-xl border transition-all"
+                          style={{
+                            background: 'rgba(239,68,68,0.08)',
+                            borderColor: 'rgba(239,68,68,0.25)',
+                            color: '#fca5a5',
+                          }}>
+                          🗑
                         </button>
                       </div>
                     </div>

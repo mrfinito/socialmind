@@ -1,4 +1,5 @@
 'use client'
+import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useStore } from '@/lib/store'
@@ -9,6 +10,21 @@ export default function Sidebar() {
   const path = usePathname()
   const { activeProject, state } = useStore()
   const { perms } = usePermissions()
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    async function checkUnread() {
+      try {
+        const res = await fetch('/api/admin/chat/unread')
+        const j = await res.json()
+        if (!cancelled) setUnreadCount(j.count || 0)
+      } catch {}
+    }
+    checkUnread()
+    const interval = setInterval(checkUnread, 30000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [])
 
   const NAV_GROUPS = [
     {
@@ -38,6 +54,7 @@ export default function Sidebar() {
         { href: '/platformy', icon: '⊹', label: 'Platformy' },
         { href: '/materialy', icon: '⊡', label: 'Materiały' },
         { href: '/projekty',  icon: '🗂', label: 'Projekty' },
+        { href: '/wiadomosci', icon: '📬', label: 'Wiadomości', badge: unreadCount > 0 ? String(unreadCount) : undefined, badgeColor: 'red' },
       ]
     },
     {
@@ -92,7 +109,7 @@ export default function Sidebar() {
               {group.label}
             </p>
             <div className="space-y-0.5">
-              {(group.items as {href:string;icon:string;label:string;badge?:string}[]).map(item => {
+              {(group.items as {href:string;icon:string;label:string;badge?:string;badgeColor?:string}[]).map(item => {
                 const active = path === item.href
                 return (
                   <Link key={item.href} href={item.href}
@@ -101,7 +118,10 @@ export default function Sidebar() {
                     <span className="flex-1 text-sm">{item.label}</span>
                     {item.badge && (
                       <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-                        style={{background:'rgba(99,102,241,0.2)',color:'#a5b4fc',border:'1px solid rgba(99,102,241,0.3)'}}>
+                        style={item.badgeColor === 'red'
+                          ? {background:'rgba(239,68,68,0.2)',color:'#fca5a5',border:'1px solid rgba(239,68,68,0.4)'}
+                          : {background:'rgba(99,102,241,0.2)',color:'#a5b4fc',border:'1px solid rgba(99,102,241,0.3)'}
+                        }>
                         {item.badge}
                       </span>
                     )}

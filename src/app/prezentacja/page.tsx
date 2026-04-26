@@ -58,6 +58,10 @@ export default function PrezentacjaPage() {
   const [activeSlide, setActiveSlide] = useState(0)
   const [exporting, setExporting] = useState(false)
   const [history, setHistory] = useState<HistoryEntry<Presentation>[]>([])
+  const [editInstruction, setEditInstruction] = useState('')
+  const [editLoading, setEditLoading] = useState(false)
+  const [editError, setEditError] = useState('')
+  const [editAction, setEditAction] = useState<'add' | 'modify-slide' | 'modify'>('add')
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -197,6 +201,116 @@ export default function PrezentacjaPage() {
       slides[slideIdx] = { ...slides[slideIdx], ...patch }
       return { ...prev, slides }
     })
+  }
+
+  function deleteSlide(idx: number) {
+    if (!data || data.slides.length <= 1) return
+    if (!confirm(`Usunąć slajd ${idx+1}: "${data.slides[idx].title}"?`)) return
+    setData(prev => {
+      if (!prev) return prev
+      const slides = prev.slides.filter((_, i) => i !== idx)
+      return { ...prev, slides }
+    })
+    if (activeSlide >= idx && activeSlide > 0) setActiveSlide(activeSlide - 1)
+  }
+
+  function moveSlide(idx: number, direction: 'up' | 'down') {
+    setData(prev => {
+      if (!prev) return prev
+      const slides = [...prev.slides]
+      const targetIdx = direction === 'up' ? idx - 1 : idx + 1
+      if (targetIdx < 0 || targetIdx >= slides.length) return prev
+      ;[slides[idx], slides[targetIdx]] = [slides[targetIdx], slides[idx]]
+      return { ...prev, slides }
+    })
+    setActiveSlide(direction === 'up' ? Math.max(0, idx - 1) : Math.min((data?.slides.length || 1) - 1, idx + 1))
+  }
+
+  function duplicateSlide(idx: number) {
+    setData(prev => {
+      if (!prev) return prev
+      const orig = prev.slides[idx]
+      const copy: Slide = { ...orig, id: `${orig.id}-copy-${Date.now()}`, title: orig.title + ' (kopia)' }
+      const slides = [...prev.slides.slice(0, idx + 1), copy, ...prev.slides.slice(idx + 1)]
+      return { ...prev, slides }
+    })
+    setActiveSlide(idx + 1)
+  }
+
+  function addBlankSlide(afterIdx?: number) {
+    if (!data) return
+    const newSlide: Slide = {
+      id: `slide-${Date.now()}`,
+      type: 'content',
+      title: 'Nowy slajd',
+      content: ['Punkt pierwszy', 'Punkt drugi'],
+      speakerNotes: '',
+    }
+    const insertAt = typeof afterIdx === 'number' ? afterIdx + 1 : data.slides.length
+    setData(prev => {
+      if (!prev) return prev
+      const slides = [...prev.slides.slice(0, insertAt), newSlide, ...prev.slides.slice(insertAt)]
+      return { ...prev, slides }
+    })
+    setActiveSlide(insertAt)
+  }
+
+  async function aiEdit() {
+    if (!data || !editInstruction.trim()) return
+    setEditLoading(true); setEditError('')
+    try {
+      const res = await fetch('/api/prezentacja-edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instruction: editInstruction,
+          action: editAction,
+          presentation: data,
+          slideIndex: editAction === 'modify-slide' ? activeSlide : undefined,
+        })
+      })
+      const j = await res.json()
+      if (!res.ok) throw new Error(j.error)
+
+      // Apply changes
+      if (editAction === 'add' && j.slides) {
+        setData(prev => {
+          if (!prev) return prev
+          const newSlides = (j.slides as Array<Slide & { insertAfterIndex?: number }>).map((s, i) => ({
+            ...s,
+            id: `slide-ai-${Date.now()}-${i}`,
+          }))
+          let slides = [...prev.slides]
+          // Sort additions by insertAfterIndex (insert from end)
+          const sorted = [...newSlides].sort((a, b) => 
+            (b.insertAfterIndex ?? slides.length) - (a.insertAfterIndex ?? slides.length)
+          )
+          for (const s of sorted) {
+            const insertIdx = (s.insertAfterIndex ?? slides.length - 1) + 1
+            slides = [...slides.slice(0, insertIdx), s, ...slides.slice(insertIdx)]
+          }
+          return { ...prev, slides }
+        })
+      } else if (editAction === 'modify-slide' && j.slide) {
+        updateSlide(activeSlide, j.slide)
+      } else if (editAction === 'modify' && j.modifications) {
+        setData(prev => {
+          if (!prev) return prev
+          const slides = [...prev.slides]
+          for (const mod of j.modifications as Array<{ slideIndex: number; changes: Partial<Slide> }>) {
+            if (slides[mod.slideIndex]) {
+              slides[mod.slideIndex] = { ...slides[mod.slideIndex], ...mod.changes }
+            }
+          }
+          return { ...prev, slides }
+        })
+      }
+      setEditInstruction('')
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : 'Błąd')
+    } finally {
+      setEditLoading(false)
+    }
   }
 
   function reset() {
@@ -351,6 +465,51 @@ export default function PrezentacjaPage() {
                   {exporting ? '⏳ Generuję PPTX...' : '⬇ Pobierz PPTX'}
                 </button>
               </div>
+
+              {/* AI Edit panel */}
+              <div className="card mb-2" style={{ background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.2)' }}>
+                <p className="text-xs font-semibold text-indigo-300 mb-2">🤖 Dopytaj AI</p>
+                <div className="grid grid-cols-3 gap-1 mb-2">
+                  <button onClick={() => setEditAction('add')}
+                    className="text-[10px] py-1.5 rounded"
+                    style={{
+                      background: editAction === 'add' ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.05)',
+                      color: editAction === 'add' ? '#a5b4fc' : '#9ca3af',
+                    }}>+ Dodaj</button>
+                  <button onClick={() => setEditAction('modify-slide')}
+                    className="text-[10px] py-1.5 rounded"
+                    style={{
+                      background: editAction === 'modify-slide' ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.05)',
+                      color: editAction === 'modify-slide' ? '#a5b4fc' : '#9ca3af',
+                    }}>✏️ Ten slajd</button>
+                  <button onClick={() => setEditAction('modify')}
+                    className="text-[10px] py-1.5 rounded"
+                    style={{
+                      background: editAction === 'modify' ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.05)',
+                      color: editAction === 'modify' ? '#a5b4fc' : '#9ca3af',
+                    }}>🌐 Wszystkie</button>
+                </div>
+                <textarea value={editInstruction} onChange={e => setEditInstruction(e.target.value)}
+                  placeholder={
+                    editAction === 'add' ? 'np. dodaj slajd o ROI z naszych kampanii' :
+                    editAction === 'modify-slide' ? 'np. skróć ten slajd, dodaj statystyki, zmień ton' :
+                    'np. zmień ton wszystkich slajdów na bardziej luźny'
+                  }
+                  rows={3}
+                  className="w-full px-2 py-2 rounded text-xs bg-white/5 border border-white/10 text-white focus:border-indigo-500 outline-none resize-none mb-2" />
+                <button onClick={aiEdit} disabled={editLoading || !editInstruction.trim()}
+                  className="w-full text-xs py-2 rounded-lg transition-all disabled:opacity-30"
+                  style={{ background: '#6366f1', color: 'white' }}>
+                  {editLoading ? '⏳ AI pracuje...' : '✦ Zastosuj'}
+                </button>
+                {editError && <p className="text-[10px] text-red-400 mt-2">{editError}</p>}
+              </div>
+
+              <button onClick={() => addBlankSlide()}
+                className="w-full text-xs py-2 rounded-lg mb-2 transition-all"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px dashed rgba(255,255,255,0.15)', color: '#9ca3af' }}>
+                + Dodaj pusty slajd na końcu
+              </button>
               {data.slides.map((s, i) => (
                 <button key={s.id} onClick={() => setActiveSlide(i)}
                   className="w-full text-left p-3 rounded-lg transition-all"
@@ -371,15 +530,46 @@ export default function PrezentacjaPage() {
             {/* Slide editor */}
             <div className="space-y-4">
               <div className="card">
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-3 gap-2">
                   <span className="text-xs uppercase tracking-wider text-gray-500">{slide.type} · slajd {activeSlide+1}/{data.slides.length}</span>
                   <div className="flex gap-1">
                     <button onClick={() => setActiveSlide(s => Math.max(0, s-1))} disabled={activeSlide === 0}
+                      title="Poprzedni"
                       className="btn-ghost text-xs px-2 py-1 disabled:opacity-30">←</button>
                     <button onClick={() => setActiveSlide(s => Math.min(data.slides.length-1, s+1))} disabled={activeSlide === data.slides.length-1}
+                      title="Następny"
                       className="btn-ghost text-xs px-2 py-1 disabled:opacity-30">→</button>
+                    <div className="w-px bg-white/10 mx-1"></div>
+                    <button onClick={() => moveSlide(activeSlide, 'up')} disabled={activeSlide === 0}
+                      title="Przesuń w górę"
+                      className="btn-ghost text-xs px-2 py-1 disabled:opacity-30">↑</button>
+                    <button onClick={() => moveSlide(activeSlide, 'down')} disabled={activeSlide === data.slides.length-1}
+                      title="Przesuń w dół"
+                      className="btn-ghost text-xs px-2 py-1 disabled:opacity-30">↓</button>
+                    <div className="w-px bg-white/10 mx-1"></div>
+                    <button onClick={() => duplicateSlide(activeSlide)}
+                      title="Duplikuj slajd"
+                      className="btn-ghost text-xs px-2 py-1">⧉</button>
+                    <button onClick={() => addBlankSlide(activeSlide)}
+                      title="Dodaj pusty slajd"
+                      className="btn-ghost text-xs px-2 py-1">+</button>
+                    <button onClick={() => deleteSlide(activeSlide)} disabled={data.slides.length <= 1}
+                      title="Usuń slajd"
+                      className="text-xs px-2 py-1 rounded text-red-400 hover:bg-red-500/10 disabled:opacity-30">🗑</button>
                   </div>
                 </div>
+
+                <label className="label">Typ slajdu</label>
+                <select className="input mb-3" value={slide.type}
+                  onChange={e => updateSlide(activeSlide, { type: e.target.value as Slide['type'] })}>
+                  <option value="title">🎬 Title (otwierający)</option>
+                  <option value="section">📑 Section (przejście sekcji)</option>
+                  <option value="content">📝 Content (bullety)</option>
+                  <option value="stats">📊 Stats (dane liczbowe)</option>
+                  <option value="quote">💬 Quote (cytat)</option>
+                  <option value="comparison">⚖️ Comparison (porównanie)</option>
+                  <option value="cta">🎯 CTA (call to action)</option>
+                </select>
 
                 <label className="label">Tytuł slajdu</label>
                 <input className="input mb-3" value={slide.title}
