@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useStore } from '@/lib/store'
 import { usePermissions } from '@/lib/usePermissions'
 import { createClient } from '@/lib/supabase'
+import ThemeToggle from '@/components/ThemeToggle'
 
 export default function Sidebar() {
   const path = usePathname()
@@ -95,6 +96,17 @@ export default function Sidebar() {
         perms.can_repurposing    && { href: '/repurposing',   icon: '♻️', label: 'Smart Repurposing' },
         perms.can_ab_testy       && { href: '/ab-testy',      icon: '🧪', label: 'Testy A/B' },
       ].filter(Boolean)
+    },
+    {
+      label: 'Specjaliści AI',
+      items: [
+        { href: '/meta-ads',     icon: '📣', label: 'Meta Ads',         badge: 'NEW' },
+        { href: '/storyboard',   icon: '🎬', label: 'Storyboard reels', badge: 'NEW' },
+        { href: '/crisis',       icon: '🚨', label: 'Crisis Response',  badge: 'NEW' },
+        { href: '/tone-checker', icon: '🎯', label: 'Voice Checker',    badge: 'NEW' },
+        { href: '/newsletter',   icon: '📧', label: 'Newsletter',       badge: 'NEW' },
+        { href: '/caption-ab',   icon: '🧪', label: 'Caption A/B',      badge: 'NEW' },
+      ]
     },
   ]
 
@@ -189,6 +201,7 @@ export default function Sidebar() {
             ⎋
           </button>
         </div>
+        <div className="mt-2"><ThemeToggle /></div>
       </div>
     </aside>
   )

@@ -8,6 +8,15 @@
     "src/app/api/wlasny-brief/route.ts": { "maxDuration": 300 },
     "src/app/api/prezentacja/route.ts": { "maxDuration": 300 },
     "src/app/api/prezentacja-export/route.ts": { "maxDuration": 120 },
+    "src/app/api/meta-ads/route.ts": { "maxDuration": 180 },
+    "src/app/api/storyboard/route.ts": { "maxDuration": 180 },
+    "src/app/api/kryzys/route.ts": { "maxDuration": 120 },
+    "src/app/api/voice-check/route.ts": { "maxDuration": 60 },
+    "src/app/api/newsletter/route.ts": { "maxDuration": 180 },
+    "src/app/api/caption-ab/route.ts": { "maxDuration": 120 },
+    "src/app/api/ai-reviewer/route.ts": { "maxDuration": 120 },
+    "src/app/api/translate/route.ts": { "maxDuration": 120 },
+    "src/app/api/konkurencja-scrape/route.ts": { "maxDuration": 180 },
     "src/app/api/extract-text/route.ts": { "maxDuration": 60 },
     "src/app/api/refine-image-prompt/route.ts": { "maxDuration": 60 },
     "src/app/api/generate-image/route.ts": { "maxDuration": 120 },
@@ -17,6 +26,12 @@
     "src/app/api/generate-report/route.ts": { "maxDuration": 120 },
     "src/app/api/listening/route.ts": { "maxDuration": 120 },
     "src/app/api/competitor/route.ts": { "maxDuration": 120 },
-    "src/app/api/analyze-brand/route.ts": { "maxDuration": 120 }
+    "src/app/api/analyze-brand/route.ts": { "maxDuration": 120 },
+    "src/app/api/meta-ads/route.ts": { "maxDuration": 120 },
+    "src/app/api/storyboard/route.ts": { "maxDuration": 120 },
+    "src/app/api/crisis/route.ts": { "maxDuration": 60 },
+    "src/app/api/tone-checker/route.ts": { "maxDuration": 60 },
+    "src/app/api/newsletter/route.ts": { "maxDuration": 120 },
+    "src/app/api/caption-ab/route.ts": { "maxDuration": 120 }
   }
 }

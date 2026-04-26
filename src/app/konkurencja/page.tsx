@@ -277,9 +277,32 @@ export default function KonkurencjaPage() {
                 </div>
               )}
               {error && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">{error}</p>}
-              <button className="btn-primary flex items-center gap-2 px-6 py-3" onClick={analyze} disabled={loading}>
-                {loading ? <><Dots /> Analizuję konkurenta...</> : '🔍 Analizuj konkurenta'}
-              </button>
+              <div className="flex gap-2">
+                <button className="btn-primary flex items-center gap-2 px-6 py-3 flex-1" onClick={analyze} disabled={loading}>
+                  {loading ? <><Dots /> Analizuję...</> : '🔍 Analizuj konkurenta'}
+                </button>
+                <button className="px-4 py-3 rounded-xl text-sm font-medium" 
+                  onClick={async () => {
+                    if (!competitorUrl) { setError('Wpisz URL profilu konkurenta'); return }
+                    setLoading(true); setError('')
+                    try {
+                      const res = await fetch('/api/konkurencja-scrape', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ competitorUrl, competitorName, industry: dna?.industry })
+                      })
+                      const j = await res.json()
+                      if (!j.ok) throw new Error(j.error)
+                      setData(j.data)
+                      setCurrentName(j.data.competitorName || competitorName || competitorUrl)
+                    } catch(e: unknown) { setError(e instanceof Error ? e.message : 'Błąd') }
+                    finally { setLoading(false) }
+                  }}
+                  disabled={loading || !competitorUrl}
+                  style={{background:'rgba(99,102,241,0.15)',border:'1px solid rgba(99,102,241,0.3)',color:'#a5b4fc'}}
+                  title="Scrapuj publiczne dane z URL i przeanalizuj">
+                  🌐 Scrape z URL
+                </button>
+              </div>
             </div>
 
             {/* Results */}

@@ -73,3 +73,60 @@ body { font-family: 'Inter', system-ui, sans-serif; background: #0f1117; color: 
     border: 1px solid rgba(99,102,241,0.20);
   }
 }
+
+/* ─── Light mode override ─────────────────────────── */
+body.light-mode {
+  background: #f8fafc;
+  color: #1f2937;
+}
+body.light-mode main {
+  background: #f8fafc !important;
+}
+body.light-mode .card {
+  background: #ffffff !important;
+  border-color: rgba(0,0,0,0.06) !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+body.light-mode .card-sm {
+  background: #ffffff !important;
+  border-color: rgba(0,0,0,0.06) !important;
+}
+body.light-mode .input,
+body.light-mode input,
+body.light-mode textarea,
+body.light-mode select {
+  background: #ffffff !important;
+  border-color: rgba(0,0,0,0.1) !important;
+  color: #1f2937 !important;
+}
+body.light-mode .input:focus { border-color: #6366f1 !important; }
+body.light-mode .label,
+body.light-mode .text-gray-400,
+body.light-mode .text-gray-500 { color: #6b7280 !important; }
+body.light-mode .text-gray-600 { color: #9ca3af !important; }
+body.light-mode .text-gray-700 { color: #d1d5db !important; }
+body.light-mode .text-white { color: #111827 !important; }
+body.light-mode .text-gray-300 { color: #374151 !important; }
+body.light-mode .btn-secondary { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.1); color: #1f2937; }
+body.light-mode .btn-secondary:hover { background: rgba(0,0,0,0.08); }
+body.light-mode .btn-ghost { color: #6b7280; }
+body.light-mode .btn-ghost:hover { background: rgba(0,0,0,0.04); color: #111827; }
+body.light-mode aside,
+body.light-mode nav {
+  background: #ffffff !important;
+  border-color: rgba(0,0,0,0.06) !important;
+}
+body.light-mode .sidebar-link { color: #4b5563; }
+body.light-mode .sidebar-link:hover { background: rgba(0,0,0,0.04); color: #111827; }
+body.light-mode .sidebar-link-active {
+  background: rgba(99,102,241,0.1) !important;
+  color: #4f46e5 !important;
+}
+body.light-mode [style*="background: rgba(255,255,255,0.0"],
+body.light-mode [style*="background:rgba(255,255,255,0.0"] {
+  background: rgba(0,0,0,0.03) !important;
+}
+body.light-mode [style*="border: 1px solid rgba(255,255,255,0.0"],
+body.light-mode [style*="border:1px solid rgba(255,255,255,0.0"] {
+  border-color: rgba(0,0,0,0.08) !important;
+}

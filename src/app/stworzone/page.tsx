@@ -49,6 +49,12 @@ const MODULE_INFO: Record<string, { icon: string; label: string; href: string; c
   repurposing:    { icon: '♻️', label: 'Repurposing',       href: '/repurposing',   color: '#34d399' },
   raport:         { icon: '📊', label: 'Raport',            href: '/raport',        color: '#60a5fa' },
   prezentacja:    { icon: '🎤', label: 'Prezentacja',       href: '/prezentacja',   color: '#fbbf24' },
+  'meta-ads':     { icon: '📣', label: 'Meta Ads',          href: '/meta-ads',      color: '#3b82f6' },
+  storyboard:     { icon: '🎬', label: 'Storyboard',        href: '/storyboard',    color: '#fb923c' },
+  crisis:         { icon: '🚨', label: 'Crisis Response',   href: '/crisis',        color: '#ef4444' },
+  'tone-checker': { icon: '🎯', label: 'Voice Checker',     href: '/tone-checker',  color: '#a855f7' },
+  newsletter:     { icon: '📧', label: 'Newsletter',        href: '/newsletter',    color: '#34d399' },
+  'caption-ab':   { icon: '🧪', label: 'Caption A/B',       href: '/caption-ab',    color: '#60a5fa' },
 }
 
 export default function StworzonePage() {
