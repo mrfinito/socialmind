@@ -15,6 +15,7 @@ interface Slide {
   speakerNotes?: string
   imageIdea?: string
   imageUrl?: string
+  imagePlacement?: 'side' | 'background' | 'full'
 }
 
 interface Presentation {
@@ -62,7 +63,49 @@ export default function PrezentacjaPage() {
   const [editLoading, setEditLoading] = useState(false)
   const [editError, setEditError] = useState('')
   const [editAction, setEditAction] = useState<'add' | 'modify-slide' | 'modify'>('add')
+  const [translating, setTranslating] = useState(false)
+  const [copiedField, setCopiedField] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  function copyToClipboard(text: string, fieldId: string) {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedField(fieldId)
+      setTimeout(() => setCopiedField(null), 1500)
+    }).catch(() => {
+      // Fallback for older browsers
+      const ta = document.createElement('textarea')
+      ta.value = text
+      document.body.appendChild(ta)
+      ta.select()
+      try { document.execCommand('copy') } catch {}
+      document.body.removeChild(ta)
+      setCopiedField(fieldId)
+      setTimeout(() => setCopiedField(null), 1500)
+    })
+  }
+
+  async function translatePresentation(targetLang: 'en' | 'pl') {
+    if (!data) return
+    if (!confirm(targetLang === 'en'
+      ? 'Przetłumaczyć całą prezentację na angielski? Wszystkie tytuły, treści i speaker notes zostaną podmienione.'
+      : 'Przetłumaczyć całą prezentację na polski?')) return
+    setTranslating(true)
+    try {
+      const res = await fetch('/api/prezentacja-translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ presentation: data, targetLang })
+      })
+      const j = await res.json()
+      if (!j.ok) throw new Error(j.error || 'Błąd tłumaczenia')
+      setData(j.data)
+      resultRef.current = j.data
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Błąd tłumaczenia')
+    } finally {
+      setTranslating(false)
+    }
+  }
 
   useEffect(() => {
     setHistory(historyLoad<Presentation>('prezentacja', projectId))
@@ -187,7 +230,13 @@ export default function PrezentacjaPage() {
     setData(prev => {
       if (!prev) return prev
       const slides = [...prev.slides]
-      slides[slideIdx] = { ...slides[slideIdx], imageUrl }
+      const current = slides[slideIdx]
+      slides[slideIdx] = {
+        ...current,
+        imageUrl,
+        // Default placement when first generating: title/section → full bg, others → side
+        imagePlacement: current.imagePlacement || (current.type === 'title' || current.type === 'section' ? 'background' : 'side'),
+      }
       const updated = { ...prev, slides }
       resultRef.current = updated
       return updated
@@ -464,6 +513,20 @@ export default function PrezentacjaPage() {
                   style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', color: '#6ee7b7' }}>
                   {exporting ? '⏳ Generuję PPTX...' : '⬇ Pobierz PPTX'}
                 </button>
+
+                {/* Translation buttons */}
+                <div className="grid grid-cols-2 gap-1 mt-2">
+                  <button onClick={() => translatePresentation('en')} disabled={translating || exporting}
+                    className="text-[11px] py-1.5 rounded-lg transition-all disabled:opacity-50"
+                    style={{ background: 'rgba(99,102,241,0.10)', border: '1px solid rgba(99,102,241,0.25)', color: '#a5b4fc' }}>
+                    {translating ? '⏳ Tłumaczę...' : '🇬🇧 EN'}
+                  </button>
+                  <button onClick={() => translatePresentation('pl')} disabled={translating || exporting}
+                    className="text-[11px] py-1.5 rounded-lg transition-all disabled:opacity-50"
+                    style={{ background: 'rgba(99,102,241,0.10)', border: '1px solid rgba(99,102,241,0.25)', color: '#a5b4fc' }}>
+                    {translating ? '⏳' : '🇵🇱 PL'}
+                  </button>
+                </div>
               </div>
 
               {/* AI Edit panel */}
@@ -571,13 +634,21 @@ export default function PrezentacjaPage() {
                   <option value="cta">🎯 CTA (call to action)</option>
                 </select>
 
-                <label className="label">Tytuł slajdu</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="label !mb-0">Tytuł slajdu</label>
+                  <CopyBtn text={slide.title} fieldId={`title-${slide.id}`}
+                    copiedField={copiedField} onCopy={copyToClipboard} />
+                </div>
                 <input className="input mb-3" value={slide.title}
                   onChange={e => updateSlide(activeSlide, { title: e.target.value })} />
 
                 {(slide.type === 'title' || slide.type === 'section') && (
                   <>
-                    <label className="label">Podtytuł</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="label !mb-0">Podtytuł</label>
+                      <CopyBtn text={slide.subtitle || ''} fieldId={`sub-${slide.id}`}
+                        copiedField={copiedField} onCopy={copyToClipboard} />
+                    </div>
                     <input className="input mb-3" value={slide.subtitle || ''}
                       onChange={e => updateSlide(activeSlide, { subtitle: e.target.value })} />
                   </>
@@ -585,23 +656,73 @@ export default function PrezentacjaPage() {
 
                 {slide.content && slide.content.length > 0 && (
                   <>
-                    <label className="label">Treść (każda linia = osobny punkt)</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="label !mb-0">Treść (każda linia = osobny punkt)</label>
+                      <CopyBtn text={slide.content.join('\n')} fieldId={`content-${slide.id}`}
+                        copiedField={copiedField} onCopy={copyToClipboard} />
+                    </div>
                     <textarea className="input mb-3" rows={Math.max(3, slide.content.length)}
                       value={slide.content.join('\n')}
                       onChange={e => updateSlide(activeSlide, { content: e.target.value.split('\n').filter(l => l.trim()) })} />
                   </>
                 )}
 
-                <label className="label">📝 Speaker notes (co prelegent powie)</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="label !mb-0">📝 Speaker notes (co prelegent powie)</label>
+                  <CopyBtn text={slide.speakerNotes || ''} fieldId={`notes-${slide.id}`}
+                    copiedField={copiedField} onCopy={copyToClipboard} />
+                </div>
                 <textarea className="input" rows={3} value={slide.speakerNotes || ''}
                   onChange={e => updateSlide(activeSlide, { speakerNotes: e.target.value })} />
               </div>
 
               {/* Image generator for this slide */}
-              {slide.imageIdea && (
-                <div className="card">
-                  <label className="label">🖼️ Grafika slajdu</label>
-                  <p className="text-xs text-gray-500 mb-2">{slide.imageIdea}</p>
+              <div className="card">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="label !mb-0">🖼️ Grafika slajdu</label>
+                  {slide.imageUrl && (
+                    <button onClick={() => updateSlide(activeSlide, { imageUrl: undefined })}
+                      className="text-[10px] text-red-400 hover:text-red-300">
+                      🗑 Usuń grafikę
+                    </button>
+                  )}
+                </div>
+
+                {/* Image idea — editable */}
+                <textarea className="input mb-3" rows={2}
+                  placeholder="Opisz jaka grafika ma być na tym slajdzie..."
+                  value={slide.imageIdea || ''}
+                  onChange={e => updateSlide(activeSlide, { imageIdea: e.target.value })} />
+
+                {/* Placement selector — only when image exists */}
+                {slide.imageUrl && (
+                  <div className="mb-3">
+                    <label className="label">Sposób umieszczenia grafiki w PPTX</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {([
+                        { id: 'side', label: '📐 Z boku', desc: 'Po prawej + tekst po lewej' },
+                        { id: 'background', label: '🌅 Tło', desc: 'Pełne tło z nakładką tekstu' },
+                        { id: 'full', label: '🖼️ Pełny slajd', desc: 'Cała grafika bez tekstu' },
+                      ] as const).map(opt => {
+                        const isActive = (slide.imagePlacement || 'side') === opt.id
+                        return (
+                          <button key={opt.id} type="button"
+                            onClick={() => updateSlide(activeSlide, { imagePlacement: opt.id })}
+                            className="text-left p-2.5 rounded-lg transition-all"
+                            style={{
+                              background: isActive ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.03)',
+                              border: isActive ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.06)',
+                            }}>
+                            <p className="text-xs font-semibold text-white mb-0.5">{opt.label}</p>
+                            <p className="text-[10px] text-gray-500">{opt.desc}</p>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {slide.imageIdea && (
                   <ImageGenerator
                     key={`${slide.id}-img`}
                     initialPrompt={slide.imageIdea}
@@ -609,8 +730,8 @@ export default function PrezentacjaPage() {
                     size="md"
                     onImageGenerated={(d) => updateSlideImage(activeSlide, d.url)}
                   />
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Live slide preview */}
               <div className="card">
@@ -625,6 +746,28 @@ export default function PrezentacjaPage() {
         )}
       </div>
     </AppShell>
+  )
+}
+
+function CopyBtn({ text, fieldId, copiedField, onCopy }: {
+  text: string
+  fieldId: string
+  copiedField: string | null
+  onCopy: (text: string, fieldId: string) => void
+}) {
+  const isCopied = copiedField === fieldId
+  if (!text || !text.trim()) return null
+  return (
+    <button type="button" onClick={() => onCopy(text, fieldId)}
+      className="text-[10px] px-2 py-0.5 rounded transition-all"
+      style={{
+        background: isCopied ? 'rgba(16,185,129,0.15)' : 'rgba(99,102,241,0.10)',
+        color: isCopied ? '#6ee7b7' : '#a5b4fc',
+        border: '1px solid rgba(99,102,241,0.20)',
+      }}
+      title="Skopiuj do schowka">
+      {isCopied ? '✓ Skopiowane' : '📋 Kopiuj'}
+    </button>
   )
 }
 

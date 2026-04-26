@@ -11,6 +11,7 @@ interface Slide {
   content?: string[]
   speakerNotes?: string
   imageUrl?: string
+  imagePlacement?: 'side' | 'background' | 'full'
 }
 
 interface Presentation {
@@ -25,6 +26,10 @@ interface Presentation {
   }
 }
 
+// Layout 16:9 widescreen = 13.33 x 7.5 inches
+const SLIDE_W = 13.33
+const SLIDE_H = 7.5
+
 export async function POST(req: NextRequest) {
   try {
     const { presentation } = await req.json() as { presentation: Presentation }
@@ -34,8 +39,6 @@ export async function POST(req: NextRequest) {
 
     const PptxGenJS = (await import('pptxgenjs')).default
     const pptx = new PptxGenJS()
-    
-    // 16:9 widescreen
     pptx.layout = 'LAYOUT_WIDE'
     pptx.title = presentation.title
     pptx.author = 'SocialMind'
@@ -51,77 +54,128 @@ export async function POST(req: NextRequest) {
       const pSlide = pptx.addSlide()
       pSlide.background = { color: theme.background }
 
-      // Speaker notes
       if (slide.speakerNotes) {
         pSlide.addNotes(slide.speakerNotes)
       }
 
-      // Image (if available) - place on right side for content slides
-      const hasImage = slide.imageUrl && slide.imageUrl.startsWith('http')
-      const hasInlineImage = slide.imageUrl && slide.imageUrl.startsWith('data:')
+      const hasImage = !!slide.imageUrl && (slide.imageUrl.startsWith('http') || slide.imageUrl.startsWith('data:'))
+      const placement = slide.imagePlacement || 'side'
+      const isInline = !!slide.imageUrl && slide.imageUrl.startsWith('data:')
+
+      // === IMAGE AS BACKGROUND or FULL ===
+      if (hasImage && (placement === 'background' || placement === 'full')) {
+        try {
+          const imgOpts = isInline
+            ? { data: slide.imageUrl as string }
+            : { path: slide.imageUrl as string }
+          pSlide.addImage({
+            ...imgOpts,
+            x: 0, y: 0, w: SLIDE_W, h: SLIDE_H,
+            sizing: { type: 'cover', w: SLIDE_W, h: SLIDE_H },
+          })
+        } catch {}
+
+        if (placement === 'background') {
+          // Semi-transparent overlay so text is readable
+          pSlide.addShape('rect', {
+            x: 0, y: 0, w: SLIDE_W, h: SLIDE_H,
+            fill: { color: theme.background, transparency: 40 },
+            line: { color: theme.background, width: 0 },
+          })
+        }
+        if (placement === 'full') {
+          if (slide.type !== 'title') {
+            pSlide.addText(`${presentation.slides.indexOf(slide) + 1} / ${presentation.slides.length}`, {
+              x: 11.5, y: 6.95, w: 1.3, h: 0.3,
+              fontSize: 10, color: theme.text, fontFace: 'Inter',
+              align: 'right',
+            })
+          }
+          continue
+        }
+      }
+
+      const sideImage = hasImage && placement === 'side'
 
       switch (slide.type) {
         case 'title': {
-          // Center large title
           pSlide.addText(slide.title, {
-            x: 0.5, y: 2.5, w: 12.33, h: 1.8,
+            x: 0.5, y: 2.5, w: SLIDE_W - 1, h: 1.8,
             fontSize: 56, bold: true, color: theme.text,
             align: 'center', fontFace: 'Inter',
           })
           if (slide.subtitle) {
             pSlide.addText(slide.subtitle, {
-              x: 0.5, y: 4.4, w: 12.33, h: 1,
+              x: 0.5, y: 4.4, w: SLIDE_W - 1, h: 1,
               fontSize: 24, color: theme.primary,
               align: 'center', fontFace: 'Inter',
             })
           }
-          // Decorative line
           pSlide.addShape('rect', {
-            x: 6.165, y: 5.6, w: 1, h: 0.05,
-            fill: { color: theme.primary },
+            x: SLIDE_W / 2 - 0.5, y: 5.6, w: 1, h: 0.05,
+            fill: { color: theme.primary }, line: { color: theme.primary, width: 0 },
           })
           break
         }
+
         case 'section': {
           pSlide.addText(slide.title, {
-            x: 0.8, y: 2.8, w: 11.7, h: 2,
-            fontSize: 64, bold: true, color: theme.primary,
+            x: 0.7, y: 2.8, w: SLIDE_W - 1.4, h: 1.5,
+            fontSize: 60, bold: true, color: theme.primary,
             align: 'left', fontFace: 'Inter',
           })
           if (slide.subtitle) {
             pSlide.addText(slide.subtitle, {
-              x: 0.8, y: 4.8, w: 11.7, h: 0.8,
+              x: 0.7, y: 4.4, w: SLIDE_W - 1.4, h: 0.8,
               fontSize: 20, color: theme.text,
               align: 'left', fontFace: 'Inter',
             })
           }
           break
         }
+
+        case 'quote': {
+          const quote = slide.content?.[0] || slide.title
+          const author = slide.content?.[1]
+          pSlide.addText(`"${quote}"`, {
+            x: 1, y: 2.5, w: SLIDE_W - 2, h: 2,
+            fontSize: 36, italic: true, color: theme.text,
+            align: 'center', fontFace: 'Georgia',
+          })
+          if (author) {
+            pSlide.addText(`— ${author}`, {
+              x: 1, y: 4.7, w: SLIDE_W - 2, h: 0.5,
+              fontSize: 18, color: theme.primary,
+              align: 'center', fontFace: 'Inter',
+            })
+          }
+          break
+        }
+
         case 'stats': {
           pSlide.addText(slide.title, {
-            x: 0.8, y: 0.5, w: 11.7, h: 0.8,
-            fontSize: 28, bold: true, color: theme.text,
+            x: 0.5, y: 0.4, w: SLIDE_W - 1, h: 0.8,
+            fontSize: 30, bold: true, color: theme.text,
             align: 'left', fontFace: 'Inter',
           })
-          // Stats as big numbers in grid
           const stats = slide.content || []
-          const cols = stats.length <= 2 ? stats.length : (stats.length === 3 ? 3 : 2)
-          const rows = Math.ceil(stats.length / cols)
-          const cellW = 11.7 / cols
-          const cellH = Math.min(2.5, 5.5 / rows)
-          stats.forEach((stat, i) => {
+          const cols = stats.length === 4 ? 2 : Math.min(stats.length, 3)
+          const cellW = (SLIDE_W - 1.5) / cols
+          stats.forEach((s, i) => {
+            const [num, ...rest] = s.split(':')
+            const desc = rest.join(':').trim()
             const col = i % cols
             const row = Math.floor(i / cols)
-            const [num, ...descParts] = stat.split(':')
-            const desc = descParts.join(':').trim()
+            const xPos = 0.75 + col * cellW
+            const yPos = 2 + row * 2.2
             pSlide.addText(num.trim(), {
-              x: 0.8 + col * cellW, y: 1.7 + row * cellH, w: cellW - 0.3, h: cellH * 0.5,
-              fontSize: 56, bold: true, color: theme.primary,
+              x: xPos, y: yPos, w: cellW, h: 1.2,
+              fontSize: 60, bold: true, color: theme.primary,
               align: 'center', fontFace: 'Inter',
             })
             if (desc) {
               pSlide.addText(desc, {
-                x: 0.8 + col * cellW, y: 1.7 + row * cellH + cellH * 0.5, w: cellW - 0.3, h: cellH * 0.5,
+                x: xPos, y: yPos + 1.2, w: cellW, h: 0.6,
                 fontSize: 14, color: theme.text,
                 align: 'center', fontFace: 'Inter',
               })
@@ -129,102 +183,75 @@ export async function POST(req: NextRequest) {
           })
           break
         }
-        case 'quote': {
-          const quote = slide.content?.[0] || slide.title
-          const author = slide.content?.[1] || ''
-          pSlide.addText(`"${quote}"`, {
-            x: 1, y: 2, w: 11.33, h: 3,
-            fontSize: 32, italic: true, color: theme.text,
-            align: 'center', fontFace: 'Georgia',
-            valign: 'middle',
-          })
-          if (author) {
-            pSlide.addText(`— ${author}`, {
-              x: 1, y: 5.2, w: 11.33, h: 0.5,
-              fontSize: 18, color: theme.primary,
-              align: 'center', fontFace: 'Inter',
-            })
-          }
-          break
-        }
+
         case 'comparison': {
           pSlide.addText(slide.title, {
-            x: 0.5, y: 0.5, w: 12.33, h: 0.8,
+            x: 0.5, y: 0.4, w: SLIDE_W - 1, h: 0.8,
             fontSize: 28, bold: true, color: theme.text,
             align: 'center', fontFace: 'Inter',
           })
-          // Two columns
           const items = slide.content || []
           const left = items.filter((_, i) => i % 2 === 0)
           const right = items.filter((_, i) => i % 2 === 1)
-          pSlide.addText(left.join('\n\n'), {
-            x: 0.6, y: 1.6, w: 5.9, h: 5,
-            fontSize: 16, color: theme.text,
-            fontFace: 'Inter',
-            paraSpaceBefore: 8,
+          left.forEach((l, i) => {
+            pSlide.addText(`• ${l}`, {
+              x: 0.7, y: 1.7 + i * 0.7, w: SLIDE_W / 2 - 1, h: 0.6,
+              fontSize: 18, color: theme.text, fontFace: 'Inter',
+            })
           })
-          pSlide.addText(right.join('\n\n'), {
-            x: 6.83, y: 1.6, w: 5.9, h: 5,
-            fontSize: 16, color: theme.text,
-            fontFace: 'Inter',
-            paraSpaceBefore: 8,
+          right.forEach((r, i) => {
+            pSlide.addText(`• ${r}`, {
+              x: SLIDE_W / 2 + 0.3, y: 1.7 + i * 0.7, w: SLIDE_W / 2 - 1, h: 0.6,
+              fontSize: 18, color: theme.text, fontFace: 'Inter',
+            })
           })
-          // Divider line
-          pSlide.addShape('line', {
-            x: 6.665, y: 1.6, w: 0, h: 5,
-            line: { color: theme.primary, width: 2 },
+          pSlide.addShape('rect', {
+            x: SLIDE_W / 2 - 0.025, y: 1.5, w: 0.05, h: 5,
+            fill: { color: theme.primary }, line: { color: theme.primary, width: 0 },
           })
           break
         }
+
         case 'cta': {
           pSlide.addText(slide.title, {
-            x: 1, y: 2.5, w: 11.33, h: 1.5,
-            fontSize: 48, bold: true, color: theme.primary,
+            x: 0.5, y: 2.8, w: SLIDE_W - 1, h: 1.5,
+            fontSize: 44, bold: true, color: theme.primary,
             align: 'center', fontFace: 'Inter',
           })
           if (slide.content && slide.content.length > 0) {
-            pSlide.addText(slide.content.join('\n'), {
-              x: 1, y: 4.2, w: 11.33, h: 2,
-              fontSize: 22, color: theme.text,
+            pSlide.addText(slide.content.join(' · '), {
+              x: 1, y: 4.5, w: SLIDE_W - 2, h: 1,
+              fontSize: 20, color: theme.text,
               align: 'center', fontFace: 'Inter',
             })
           }
           break
         }
-        case 'content':
+
         default: {
-          // Title
+          const titleW = sideImage ? 7.5 : SLIDE_W - 1
           pSlide.addText(slide.title, {
-            x: 0.5, y: 0.4, w: hasImage || hasInlineImage ? 7.5 : 12.33, h: 0.8,
+            x: 0.5, y: 0.4, w: titleW, h: 0.8,
             fontSize: 30, bold: true, color: theme.text,
             align: 'left', fontFace: 'Inter',
           })
-
-          // Bullet content
           if (slide.content && slide.content.length > 0) {
             const bulletItems = slide.content.map(c => ({
               text: c,
               options: { bullet: { code: '25CF' }, fontSize: 18, color: theme.text },
             }))
             pSlide.addText(bulletItems, {
-              x: 0.6, y: 1.5, w: hasImage || hasInlineImage ? 7.4 : 12.13, h: 5,
-              fontFace: 'Inter',
-              paraSpaceBefore: 12,
+              x: 0.6, y: 1.5, w: sideImage ? 7.4 : SLIDE_W - 1.2, h: 5,
+              fontFace: 'Inter', paraSpaceBefore: 12,
             })
           }
-
-          // Image on right
-          if (hasInlineImage && slide.imageUrl) {
+          if (sideImage && slide.imageUrl) {
             try {
+              const imgOpts = isInline
+                ? { data: slide.imageUrl }
+                : { path: slide.imageUrl }
               pSlide.addImage({
-                data: slide.imageUrl,
-                x: 8.3, y: 1.5, w: 4.5, h: 5,
-              })
-            } catch {}
-          } else if (hasImage && slide.imageUrl) {
-            try {
-              pSlide.addImage({
-                path: slide.imageUrl,
+                ...imgOpts,
                 x: 8.3, y: 1.5, w: 4.5, h: 5,
               })
             } catch {}
@@ -233,7 +260,6 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Footer with slide number (skip title slide)
       if (slide.type !== 'title') {
         pSlide.addText(`${presentation.slides.indexOf(slide) + 1} / ${presentation.slides.length}`, {
           x: 11.5, y: 6.95, w: 1.3, h: 0.3,
@@ -243,12 +269,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Generate base64
-    const base64 = await pptx.write({ outputType: 'base64' }) as string
-    
-    return NextResponse.json({ ok: true, base64, filename: `${presentation.title.replace(/[^a-zA-Z0-9]/g, '_')}.pptx` })
-  } catch (err) {
-    console.error('PPTX export error:', err)
-    return NextResponse.json({ error: err instanceof Error ? err.message : 'Blad eksportu' }, { status: 500 })
+    const buf = await pptx.write({ outputType: 'nodebuffer' }) as Buffer
+    return new NextResponse(new Uint8Array(buf), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'Content-Disposition': `attachment; filename="${encodeURIComponent(presentation.title || 'prezentacja')}.pptx"`,
+      },
+    })
+  } catch (e) {
+    console.error('PPTX export error:', e)
+    return NextResponse.json({
+      error: e instanceof Error ? e.message : 'Bad eksportu'
+    }, { status: 500 })
   }
 }
