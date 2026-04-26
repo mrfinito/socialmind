@@ -29,17 +29,64 @@ export async function POST(req: NextRequest) {
   const limit = await checkGenerationLimit()
   if (!limit.allowed) return NextResponse.json({ error: limit.reason }, { status: 429 })
 
-  const { presentation, targetLang } = await req.json() as {
-    presentation: Presentation
+  const body = await req.json() as {
+    presentation?: Presentation
     targetLang: 'en' | 'pl'
+    text?: string
+    fieldOnly?: boolean
   }
-
-  if (!presentation?.slides?.length) {
-    return NextResponse.json({ error: 'Brak prezentacji do tłumaczenia' }, { status: 400 })
-  }
+  const { targetLang, fieldOnly, text } = body
 
   const langName = targetLang === 'en' ? 'English' : 'Polish (Polski)'
   const sourceLang = targetLang === 'en' ? 'Polish' : 'English'
+
+  // === FIELD-ONLY MODE: translate single text fragment ===
+  if (fieldOnly) {
+    if (!text?.trim()) {
+      return NextResponse.json({ error: 'Brak tekstu do tłumaczenia' }, { status: 400 })
+    }
+    const fieldPrompt = `You are a professional translator specializing in business presentations and marketing content.
+
+Translate this text from ${sourceLang} to ${langName}.
+
+RULES:
+- Translate naturally, capturing meaning and tone (not word-for-word)
+- Keep the EXACT structure - if input has multiple lines, output must have the same number of lines in the same order
+- Keep brand names, product names, proper nouns unchanged
+- Numbers, percentages, dates - keep as-is
+- Preserve professional/marketing tone
+- Adapt idioms naturally to ${langName}
+
+Return ONLY the translated text, no quotes, no markdown, no commentary.
+
+Text to translate:
+${text}`
+
+    try {
+      const response = await client.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: fieldPrompt }]
+      })
+      const translated = response.content
+        .map((b: { type: string; text?: string }) => b.type === 'text' ? b.text : '')
+        .join('')
+        .trim()
+        // Remove wrapping quotes if AI added them
+        .replace(/^["'`]|["'`]$/g, '')
+      return NextResponse.json({ ok: true, translated })
+    } catch (e) {
+      return NextResponse.json({
+        error: e instanceof Error ? e.message : 'Bad tlumaczenia'
+      }, { status: 500 })
+    }
+  }
+
+  // === FULL PRESENTATION MODE ===
+  const presentation = body.presentation
+  if (!presentation?.slides?.length) {
+    return NextResponse.json({ error: 'Brak prezentacji do tłumaczenia' }, { status: 400 })
+  }
 
   // Build slim version - only translatable fields, keep IDs and types
   const translatable = {

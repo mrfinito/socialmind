@@ -65,6 +65,7 @@ export default function PrezentacjaPage() {
   const [editAction, setEditAction] = useState<'add' | 'modify-slide' | 'modify'>('add')
   const [translating, setTranslating] = useState(false)
   const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [translatingField, setTranslatingField] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   function copyToClipboard(text: string, fieldId: string) {
@@ -81,6 +82,42 @@ export default function PrezentacjaPage() {
       document.body.removeChild(ta)
       setCopiedField(fieldId)
       setTimeout(() => setCopiedField(null), 1500)
+    })
+  }
+
+  async function translateField(text: string, fieldId: string, targetLang: 'en' | 'pl', onResult: (translated: string) => void) {
+    if (!text.trim()) return
+    setTranslatingField(fieldId)
+    try {
+      const res = await fetch('/api/prezentacja-translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, targetLang, fieldOnly: true })
+      })
+      const j = await res.json()
+      if (!j.ok) throw new Error(j.error || 'Błąd tłumaczenia')
+      onResult(j.translated)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Błąd tłumaczenia')
+    } finally {
+      setTranslatingField(null)
+    }
+  }
+
+  function applyImageToAllSlides(imageUrl: string, placement: 'side' | 'background' | 'full') {
+    if (!data) return
+    const slidesWithImage = data.slides.filter(s => s.imageUrl && s.imageUrl !== imageUrl).length
+    let confirmMsg = `Zastosować tę grafikę do wszystkich ${data.slides.length} slajdów?`
+    if (slidesWithImage > 0) {
+      confirmMsg += `\n\n⚠️ Uwaga: ${slidesWithImage} slajd${slidesWithImage === 1 ? '' : slidesWithImage < 5 ? 'y' : 'ów'} mają już własne grafiki — zostaną nadpisane.`
+    }
+    if (!confirm(confirmMsg)) return
+    setData(prev => {
+      if (!prev) return prev
+      const slides = prev.slides.map(s => ({ ...s, imageUrl, imagePlacement: placement }))
+      const updated = { ...prev, slides }
+      resultRef.current = updated
+      return updated
     })
   }
 
@@ -636,8 +673,11 @@ export default function PrezentacjaPage() {
 
                 <div className="flex items-center justify-between mb-1">
                   <label className="label !mb-0">Tytuł slajdu</label>
-                  <CopyBtn text={slide.title} fieldId={`title-${slide.id}`}
-                    copiedField={copiedField} onCopy={copyToClipboard} />
+                  <FieldActions text={slide.title} fieldId={`title-${slide.id}`}
+                    copiedField={copiedField} onCopy={copyToClipboard}
+                    translatingField={translatingField}
+                    onTranslate={(t, f, lang) => translateField(t, f, lang,
+                      (translated) => updateSlide(activeSlide, { title: translated }))} />
                 </div>
                 <input className="input mb-3" value={slide.title}
                   onChange={e => updateSlide(activeSlide, { title: e.target.value })} />
@@ -646,8 +686,11 @@ export default function PrezentacjaPage() {
                   <>
                     <div className="flex items-center justify-between mb-1">
                       <label className="label !mb-0">Podtytuł</label>
-                      <CopyBtn text={slide.subtitle || ''} fieldId={`sub-${slide.id}`}
-                        copiedField={copiedField} onCopy={copyToClipboard} />
+                      <FieldActions text={slide.subtitle || ''} fieldId={`sub-${slide.id}`}
+                        copiedField={copiedField} onCopy={copyToClipboard}
+                        translatingField={translatingField}
+                        onTranslate={(t, f, lang) => translateField(t, f, lang,
+                          (translated) => updateSlide(activeSlide, { subtitle: translated }))} />
                     </div>
                     <input className="input mb-3" value={slide.subtitle || ''}
                       onChange={e => updateSlide(activeSlide, { subtitle: e.target.value })} />
@@ -658,8 +701,11 @@ export default function PrezentacjaPage() {
                   <>
                     <div className="flex items-center justify-between mb-1">
                       <label className="label !mb-0">Treść (każda linia = osobny punkt)</label>
-                      <CopyBtn text={slide.content.join('\n')} fieldId={`content-${slide.id}`}
-                        copiedField={copiedField} onCopy={copyToClipboard} />
+                      <FieldActions text={slide.content.join('\n')} fieldId={`content-${slide.id}`}
+                        copiedField={copiedField} onCopy={copyToClipboard}
+                        translatingField={translatingField}
+                        onTranslate={(t, f, lang) => translateField(t, f, lang,
+                          (translated) => updateSlide(activeSlide, { content: translated.split('\n').filter(l => l.trim()) }))} />
                     </div>
                     <textarea className="input mb-3" rows={Math.max(3, slide.content.length)}
                       value={slide.content.join('\n')}
@@ -669,8 +715,11 @@ export default function PrezentacjaPage() {
 
                 <div className="flex items-center justify-between mb-1">
                   <label className="label !mb-0">📝 Speaker notes (co prelegent powie)</label>
-                  <CopyBtn text={slide.speakerNotes || ''} fieldId={`notes-${slide.id}`}
-                    copiedField={copiedField} onCopy={copyToClipboard} />
+                  <FieldActions text={slide.speakerNotes || ''} fieldId={`notes-${slide.id}`}
+                    copiedField={copiedField} onCopy={copyToClipboard}
+                    translatingField={translatingField}
+                    onTranslate={(t, f, lang) => translateField(t, f, lang,
+                      (translated) => updateSlide(activeSlide, { speakerNotes: translated }))} />
                 </div>
                 <textarea className="input" rows={3} value={slide.speakerNotes || ''}
                   onChange={e => updateSlide(activeSlide, { speakerNotes: e.target.value })} />
@@ -698,7 +747,7 @@ export default function PrezentacjaPage() {
                 {slide.imageUrl && (
                   <div className="mb-3">
                     <label className="label">Sposób umieszczenia grafiki w PPTX</label>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-3 gap-2 mb-3">
                       {([
                         { id: 'side', label: '📐 Z boku', desc: 'Po prawej + tekst po lewej' },
                         { id: 'background', label: '🌅 Tło', desc: 'Pełne tło z nakładką tekstu' },
@@ -719,6 +768,21 @@ export default function PrezentacjaPage() {
                         )
                       })}
                     </div>
+
+                    {/* Apply to all slides button */}
+                    <button type="button"
+                      onClick={() => applyImageToAllSlides(slide.imageUrl!, slide.imagePlacement || 'side')}
+                      className="w-full text-xs py-2 rounded-lg transition-all hover:opacity-90"
+                      style={{
+                        background: 'rgba(168,85,247,0.10)',
+                        border: '1px solid rgba(168,85,247,0.30)',
+                        color: '#c4b5fd',
+                      }}>
+                      🪄 Zastosuj tę grafikę do wszystkich slajdów ({data?.slides.length || 0})
+                    </button>
+                    <p className="text-[10px] text-gray-600 mt-1.5">
+                      Skopiuje obecną grafikę i sposób umieszczenia ({slide.imagePlacement || 'side'}) na wszystkie pozostałe slajdy.
+                    </p>
                   </div>
                 )}
 
@@ -749,26 +813,68 @@ export default function PrezentacjaPage() {
   )
 }
 
-function CopyBtn({ text, fieldId, copiedField, onCopy }: {
+function FieldActions({ text, fieldId, copiedField, onCopy, onTranslate, translatingField, isTextarea }: {
+  text: string
+  fieldId: string
+  copiedField: string | null
+  onCopy: (text: string, fieldId: string) => void
+  onTranslate?: (text: string, fieldId: string, targetLang: 'en' | 'pl') => void
+  translatingField: string | null
+  isTextarea?: boolean
+}) {
+  const isCopied = copiedField === fieldId
+  const isTranslating = translatingField === fieldId
+  if (!text || !text.trim()) return null
+
+  const btnStyle = {
+    background: 'rgba(99,102,241,0.10)',
+    color: '#a5b4fc',
+    border: '1px solid rgba(99,102,241,0.20)',
+  }
+  const copiedStyle = {
+    background: 'rgba(16,185,129,0.15)',
+    color: '#6ee7b7',
+    border: '1px solid rgba(16,185,129,0.20)',
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <button type="button" onClick={() => onCopy(text, fieldId)}
+        className="text-[10px] px-2 py-0.5 rounded transition-all"
+        style={isCopied ? copiedStyle : btnStyle}
+        title="Skopiuj do schowka">
+        {isCopied ? '✓ Skopiowane' : '📋'}
+      </button>
+      {onTranslate && (
+        <>
+          <button type="button" onClick={() => onTranslate(text, fieldId, 'en')}
+            disabled={isTranslating}
+            className="text-[10px] px-2 py-0.5 rounded transition-all disabled:opacity-50"
+            style={btnStyle}
+            title="Przetłumacz na angielski">
+            {isTranslating ? '⏳' : '🇬🇧 EN'}
+          </button>
+          <button type="button" onClick={() => onTranslate(text, fieldId, 'pl')}
+            disabled={isTranslating}
+            className="text-[10px] px-2 py-0.5 rounded transition-all disabled:opacity-50"
+            style={btnStyle}
+            title="Przetłumacz na polski">
+            {isTranslating ? '⏳' : '🇵🇱 PL'}
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
+// Backward compat alias
+function CopyBtn(props: {
   text: string
   fieldId: string
   copiedField: string | null
   onCopy: (text: string, fieldId: string) => void
 }) {
-  const isCopied = copiedField === fieldId
-  if (!text || !text.trim()) return null
-  return (
-    <button type="button" onClick={() => onCopy(text, fieldId)}
-      className="text-[10px] px-2 py-0.5 rounded transition-all"
-      style={{
-        background: isCopied ? 'rgba(16,185,129,0.15)' : 'rgba(99,102,241,0.10)',
-        color: isCopied ? '#6ee7b7' : '#a5b4fc',
-        border: '1px solid rgba(99,102,241,0.20)',
-      }}
-      title="Skopiuj do schowka">
-      {isCopied ? '✓ Skopiowane' : '📋 Kopiuj'}
-    </button>
-  )
+  return <FieldActions {...props} translatingField={null} />
 }
 
 function SlidePreview({ slide }: { slide: Slide }) {
