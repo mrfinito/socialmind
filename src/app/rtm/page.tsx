@@ -274,7 +274,8 @@ export default function RtmPage() {
                         o.title.toLowerCase().includes(item.name.toLowerCase().slice(0, 15)) ||
                         item.name.toLowerCase().includes(o.title.toLowerCase().slice(0, 15))
                       )
-                      const isSelected = matchingOpp && selected?.id === matchingOpp.id
+                      const syntheticId = `cal-${i}`
+                      const isSelected = selected?.id === (matchingOpp?.id || syntheticId)
                       
                       return (
                         <button key={i} 

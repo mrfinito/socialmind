@@ -283,6 +283,14 @@ export default function WlasnyBriefPage() {
                   <input ref={fileInputRef} type="file" accept=".pdf,.docx,.txt" className="hidden"
                     onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])} />
                   <div onClick={() => fileInputRef.current?.click()}
+                    onDragOver={e => { e.preventDefault(); e.stopPropagation() }}
+                    onDragEnter={e => { e.preventDefault(); e.stopPropagation() }}
+                    onDrop={e => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      const file = e.dataTransfer.files?.[0]
+                      if (file) handleFile(file)
+                    }}
                     className="border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all hover:border-indigo-500/50"
                     style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
                     {fileLoading ? (

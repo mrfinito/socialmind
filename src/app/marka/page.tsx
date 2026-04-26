@@ -82,7 +82,15 @@ export default function MarkaPage() {
 
               <div>
                 <label className="label">Logotyp <span className="text-gray-600 normal-case font-normal">(PNG z przezroczystym tłem daje najlepszy efekt)</span></label>
-                <div onClick={() => logosRef.current?.click()} className="upload-zone">
+                <div onClick={() => logosRef.current?.click()}
+                  onDragOver={e => { e.preventDefault(); e.stopPropagation() }}
+                  onDragEnter={e => { e.preventDefault(); e.stopPropagation() }}
+                  onDrop={e => {
+                    e.preventDefault(); e.stopPropagation()
+                    const files = Array.from(e.dataTransfer.files).filter(f => /\.(png|svg|webp)$/i.test(f.name)).slice(0, 2)
+                    if (files.length) setLogos(files)
+                  }}
+                  className="upload-zone">
                   <span className="text-2xl mb-1.5 block">🔷</span>
                   <p className="text-sm text-gray-400 font-medium">Kliknij lub przeciągnij logo</p>
                   <p className="text-xs text-gray-600 mt-0.5">PNG, SVG, WebP</p>
@@ -94,7 +102,15 @@ export default function MarkaPage() {
 
               <div>
                 <label className="label">Brandbook / wytyczne graficzne</label>
-                <div onClick={() => bbRef.current?.click()} className="upload-zone">
+                <div onClick={() => bbRef.current?.click()}
+                  onDragOver={e => { e.preventDefault(); e.stopPropagation() }}
+                  onDragEnter={e => { e.preventDefault(); e.stopPropagation() }}
+                  onDrop={e => {
+                    e.preventDefault(); e.stopPropagation()
+                    const files = Array.from(e.dataTransfer.files).filter(f => /\.(txt|pdf)$/i.test(f.name)).slice(0, 3)
+                    if (files.length) setBrandbooks(files)
+                  }}
+                  className="upload-zone">
                   <span className="text-2xl mb-1.5 block">📋</span>
                   <p className="text-sm text-gray-400 font-medium">Wgraj brandbook</p>
                   <p className="text-xs text-gray-600 mt-0.5">TXT, PDF</p>
@@ -115,7 +131,15 @@ export default function MarkaPage() {
             {/* Images */}
             <div className="card">
               <label className="label">Zdjęcia / inspiracje wizualne</label>
-              <div onClick={() => imgRef.current?.click()} className="upload-zone">
+              <div onClick={() => imgRef.current?.click()}
+                onDragOver={e => { e.preventDefault(); e.stopPropagation() }}
+                onDragEnter={e => { e.preventDefault(); e.stopPropagation() }}
+                onDrop={e => {
+                  e.preventDefault(); e.stopPropagation()
+                  const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')).slice(0, 3)
+                  if (files.length) setImages(files)
+                }}
+                className="upload-zone">
                 <span className="text-2xl mb-1.5 block">🖼</span>
                 <p className="text-sm text-gray-400 font-medium">Wgraj zdjęcia produktów, inspiracje</p>
                 <p className="text-xs text-gray-600 mt-0.5">JPG, PNG, WebP · max 3 pliki</p>
