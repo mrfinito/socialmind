@@ -270,13 +270,9 @@ export async function POST(req: NextRequest) {
     }
 
     const buf = await pptx.write({ outputType: 'nodebuffer' }) as Buffer
-    return new NextResponse(new Uint8Array(buf), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        'Content-Disposition': `attachment; filename="${encodeURIComponent(presentation.title || 'prezentacja')}.pptx"`,
-      },
-    })
+    const base64 = Buffer.from(buf).toString('base64')
+    const filename = `${(presentation.title || 'prezentacja').replace(/[^a-zA-Z0-9_\-\s]/g, '').slice(0, 80) || 'prezentacja'}.pptx`
+    return NextResponse.json({ ok: true, base64, filename })
   } catch (e) {
     console.error('PPTX export error:', e)
     return NextResponse.json({
