@@ -78,6 +78,7 @@ export default function Sidebar() {
         { href: '/platformy', icon: '⊹', label: 'Platformy' },
         { href: '/materialy', icon: '⊡', label: 'Materiały' },
         { href: '/stworzone', icon: '📦', label: 'Stworzone' },
+        { href: '/news',      icon: '📰', label: 'Newsy branżowe', badge: 'NEW' },
         { href: '/projekty',  icon: '🗂', label: 'Projekty' },
         { href: '/wiadomosci', icon: '📬', label: 'Wiadomości', badge: unreadCount > 0 ? String(unreadCount) : undefined, badgeColor: 'red' },
       ]
