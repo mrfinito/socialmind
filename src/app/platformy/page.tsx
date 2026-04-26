@@ -20,9 +20,10 @@ export default function PlatformyPage() {
   const selected = selectedPlatforms || []
 
   function toggle(id: Platform) {
-    savePlatforms(
-      selected.includes(id) ? selected.filter(p => p !== id) : [...selected, id]
-    )
+    const current = selected
+    const next = current.includes(id) ? current.filter(p => p !== id) : [...current, id]
+    console.log('Platforma toggle:', id, 'było:', current, '→ jest:', next)
+    savePlatforms(next)
   }
 
   return (
@@ -40,11 +41,17 @@ export default function PlatformyPage() {
           {PLATFORMS.map(p => {
             const active = selected.includes(p.id)
             return (
-              <button key={p.id} onClick={() => toggle(p.id)}
-                className="text-left rounded-2xl p-5 border transition-all"
+              <button key={p.id} type="button" onClick={() => toggle(p.id)}
+                className="text-left rounded-2xl p-5 border transition-all cursor-pointer hover:scale-[1.01]"
                 style={{
                   background: active ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.02)',
                   borderColor: active ? 'rgba(99,102,241,0.35)' : 'rgba(255,255,255,0.06)',
+                }}
+                onMouseEnter={e => {
+                  if (!active) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.20)'
+                }}
+                onMouseLeave={e => {
+                  if (!active) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'
                 }}>
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">

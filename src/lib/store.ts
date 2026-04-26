@@ -113,15 +113,29 @@ export function useStore() {
 
   const savePlatforms = useCallback(async (platforms: Platform[]) => {
     if (!state.activeProjectId) return
-    await supabase.from('projects').update({
-      selected_platforms: platforms, updated_at: new Date().toISOString()
-    }).eq('id', state.activeProjectId)
+    // Optimistic update — change UI immediately
+    const projectId = state.activeProjectId
     setState(prev => ({
       ...prev,
       projects: prev.projects.map(p =>
-        p.id === prev.activeProjectId ? { ...p, selectedPlatforms: platforms } : p
+        p.id === projectId ? { ...p, selectedPlatforms: platforms } : p
       )
     }))
+    // Persist to DB in background
+    const { error } = await supabase.from('projects').update({
+      selected_platforms: platforms, updated_at: new Date().toISOString()
+    }).eq('id', projectId)
+    if (error) {
+      console.error('savePlatforms DB error:', error)
+      // Rollback on error
+      setState(prev => ({
+        ...prev,
+        projects: prev.projects.map(p =>
+          p.id === projectId ? { ...p, selectedPlatforms: p.selectedPlatforms } : p
+        )
+      }))
+      alert('Nie udało się zapisać platformy. Spróbuj ponownie.')
+    }
   }, [state.activeProjectId])
 
   const createProject = useCallback(async (name: string, client?: string, emoji?: string, color?: string) => {
