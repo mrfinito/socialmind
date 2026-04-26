@@ -11,6 +11,29 @@ export default function Sidebar() {
   const { activeProject, state } = useStore()
   const { perms } = usePermissions()
   const [unreadCount, setUnreadCount] = useState(0)
+  const [customLogo, setCustomLogo] = useState<string | null>(null)
+  const [customAppName, setCustomAppName] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Load branding from localStorage
+    try {
+      setCustomLogo(localStorage.getItem('sm:custom-logo'))
+      setCustomAppName(localStorage.getItem('sm:custom-app-name'))
+    } catch {}
+    // Listen for branding changes from other tabs/components
+    const handler = () => {
+      try {
+        setCustomLogo(localStorage.getItem('sm:custom-logo'))
+        setCustomAppName(localStorage.getItem('sm:custom-app-name'))
+      } catch {}
+    }
+    window.addEventListener('sm-branding-changed', handler)
+    window.addEventListener('storage', handler)
+    return () => {
+      window.removeEventListener('sm-branding-changed', handler)
+      window.removeEventListener('storage', handler)
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -53,6 +76,7 @@ export default function Sidebar() {
         { href: '/brand-dna', icon: '◉', label: 'Brand DNA' },
         { href: '/platformy', icon: '⊹', label: 'Platformy' },
         { href: '/materialy', icon: '⊡', label: 'Materiały' },
+        { href: '/stworzone', icon: '📦', label: 'Stworzone' },
         { href: '/projekty',  icon: '🗂', label: 'Projekty' },
         { href: '/wiadomosci', icon: '📬', label: 'Wiadomości', badge: unreadCount > 0 ? String(unreadCount) : undefined, badgeColor: 'red' },
       ]
@@ -79,13 +103,18 @@ export default function Sidebar() {
       style={{background:'#0d1018',borderRight:'1px solid rgba(255,255,255,0.06)'}}>
       {/* Logo */}
       <div className="px-5 py-4 shrink-0" style={{borderBottom:'1px solid rgba(255,255,255,0.06)'}}>
-        <div className="flex items-center gap-2.5 mb-3">
-          <div className="w-7 h-7 bg-indigo-500 rounded-lg flex items-center justify-center"
-            style={{boxShadow:'0 0 12px rgba(99,102,241,0.4)'}}>
-            <span className="text-white text-sm font-bold">✦</span>
-          </div>
-          <span className="font-semibold text-white text-sm tracking-tight">SocialMind</span>
-        </div>
+        <Link href="/" className="flex items-center gap-2.5 mb-3 transition-opacity hover:opacity-80">
+          {customLogo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={customLogo} alt="Logo" className="w-7 h-7 rounded-lg object-cover" />
+          ) : (
+            <div className="w-7 h-7 bg-indigo-500 rounded-lg flex items-center justify-center"
+              style={{boxShadow:'0 0 12px rgba(99,102,241,0.4)'}}>
+              <span className="text-white text-sm font-bold">✦</span>
+            </div>
+          )}
+          <span className="font-semibold text-white text-sm tracking-tight">{customAppName || 'SocialMind'}</span>
+        </Link>
         {/* Active project pill */}
         {activeProject && (
           <Link href="/projekty"

@@ -1,7 +1,7 @@
 'use client'
 
 interface KeyStatus { set: boolean; label: string; hint: string; url: string; envKey: string }
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import AppShell from '@/components/layout/AppShell'
 import { createClient } from '@/lib/supabase'
 export default function UstawieniaPage() {
@@ -9,6 +9,55 @@ export default function UstawieniaPage() {
   const [lang, setLang] = useState('pl')
   const [defaultTone, setDefaultTone] = useState('profesjonalny')
   const [showSetupGuide, setShowSetupGuide] = useState(false)
+  
+  // Branding personalization
+  const [customLogo, setCustomLogo] = useState<string | null>(null)
+  const [customAppName, setCustomAppName] = useState<string>('')
+  const logoFileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    try {
+      setCustomLogo(localStorage.getItem('sm:custom-logo'))
+      setCustomAppName(localStorage.getItem('sm:custom-app-name') || '')
+    } catch {}
+  }, [])
+
+  function handleLogoUpload(file: File) {
+    if (file.size > 500 * 1024) {
+      alert('Logo nie może być większe niż 500 KB')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const url = ev.target?.result as string
+      setCustomLogo(url)
+      try {
+        localStorage.setItem('sm:custom-logo', url)
+        window.dispatchEvent(new Event('sm-branding-changed'))
+      } catch {}
+    }
+    reader.readAsDataURL(file)
+  }
+
+  function removeLogo() {
+    setCustomLogo(null)
+    try {
+      localStorage.removeItem('sm:custom-logo')
+      window.dispatchEvent(new Event('sm-branding-changed'))
+    } catch {}
+  }
+
+  function saveAppName() {
+    try {
+      if (customAppName.trim()) {
+        localStorage.setItem('sm:custom-app-name', customAppName.trim())
+      } else {
+        localStorage.removeItem('sm:custom-app-name')
+      }
+      window.dispatchEvent(new Event('sm-branding-changed'))
+      handleSave('app-name')
+    } catch {}
+  }
 
   function handleSave(section: string) {
     setSaved(section)
@@ -48,6 +97,75 @@ export default function UstawieniaPage() {
         </div>
 
         <div className="space-y-5">
+
+          {/* Personalization (white-label branding) */}
+          <div className="card">
+            <div className="flex items-start gap-3 mb-4">
+              <span className="text-2xl">🎨</span>
+              <div>
+                <h2 className="text-base font-semibold text-white">Personalizacja</h2>
+                <p className="text-gray-500 text-xs mt-0.5">Wgraj własne logo i zmień nazwę aplikacji — pojawi się w sidebarze</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="label">Własne logo</label>
+                <p className="text-[10px] text-gray-600 mb-2">PNG/JPG/SVG, max 500 KB — wyświetlane w lewym górnym rogu sidebar&apos;a (zamiast ✦)</p>
+                <input ref={logoFileRef} type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" className="hidden"
+                  onChange={e => e.target.files?.[0] && handleLogoUpload(e.target.files[0])} />
+                
+                <div className="flex items-center gap-3">
+                  {customLogo ? (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={customLogo} alt="Logo" className="w-14 h-14 rounded-xl object-cover"
+                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
+                      <button onClick={() => logoFileRef.current?.click()}
+                        className="text-xs px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10">
+                        Zmień
+                      </button>
+                      <button onClick={removeLogo}
+                        className="text-xs px-3 py-2 rounded-lg text-red-400 hover:bg-red-500/10">
+                        🗑 Usuń
+                      </button>
+                    </>
+                  ) : (
+                    <div onClick={() => logoFileRef.current?.click()}
+                      onDragOver={e => { e.preventDefault(); e.stopPropagation() }}
+                      onDrop={e => {
+                        e.preventDefault(); e.stopPropagation()
+                        const file = e.dataTransfer.files?.[0]
+                        if (file && file.type.startsWith('image/')) handleLogoUpload(file)
+                      }}
+                      className="border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all hover:border-indigo-500/50 flex-1"
+                      style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+                      <p className="text-2xl mb-1">📎</p>
+                      <p className="text-xs text-gray-400">Przeciągnij plik lub kliknij żeby wybrać</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="label">Nazwa aplikacji</label>
+                <p className="text-[10px] text-gray-600 mb-2">Domyślnie &quot;SocialMind&quot; — możesz wpisać własną (np. nazwa Twojej agencji)</p>
+                <div className="flex gap-2">
+                  <input className="input flex-1" value={customAppName}
+                    onChange={e => setCustomAppName(e.target.value)}
+                    placeholder="SocialMind" />
+                  <button onClick={saveAppName}
+                    className="btn-primary text-xs px-4">
+                    {saved === 'app-name' ? '✓ Zapisano' : 'Zapisz'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="text-[11px] text-gray-600 p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                💡 Personalizacja zapisuje się lokalnie w tej przeglądarce. Inni użytkownicy aplikacji widzą domyślne SocialMind.
+              </div>
+            </div>
+          </div>
 
           {/* Setup guide banner */}
           <div className="rounded-2xl p-5" style={{background:'rgba(99,102,241,0.08)',border:'1px solid rgba(99,102,241,0.2)'}}>
