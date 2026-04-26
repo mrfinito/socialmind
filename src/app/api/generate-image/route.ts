@@ -56,7 +56,7 @@ Zwroc TYLKO nowy prompt po angielsku, bez zadnego wyjasnienia. Prompt ma byc szc
 
 async function generateWithDalle(prompt: string, platform: string) {
   if (!process.env.OPENAI_API_KEY) throw new Error('Brak klucza OPENAI_API_KEY')
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 90_000 })
   const size = DALLE_SIZE_MAP[platform] || '1024x1024'
   const response = await openai.images.generate({
     model: 'dall-e-3',
@@ -74,17 +74,31 @@ async function generateWithDalle(prompt: string, platform: string) {
 async function generateWithGemini(prompt: string, platform: string) {
   if (!process.env.GOOGLE_API_KEY) throw new Error('Brak klucza GOOGLE_API_KEY')
   const aspectRatio = ASPECT_MAP[platform] || '1:1'
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=${process.env.GOOGLE_API_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: `Generate an image. ${prompt}. Aspect ratio: ${aspectRatio}. High quality, commercial photography style.` }] }],
-        generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
-      }),
+  // Timeout 70s (leaves 50s buffer before Vercel's 120s maxDuration)
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 70_000)
+  let response: Response
+  try {
+    response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=${process.env.GOOGLE_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `Generate an image. ${prompt}. Aspect ratio: ${aspectRatio}. High quality, commercial photography style.` }] }],
+          generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
+        }),
+        signal: controller.signal,
+      }
+    )
+  } catch (e) {
+    clearTimeout(timeout)
+    if (e instanceof Error && e.name === 'AbortError') {
+      throw new Error('Gemini timeout 70s — sprobuj DALL-E')
     }
-  )
+    throw e
+  }
+  clearTimeout(timeout)
   const data = await response.json()
   if (!response.ok) throw new Error(data?.error?.message || 'Blad Google API')
   const parts = data?.candidates?.[0]?.content?.parts || []
@@ -105,19 +119,42 @@ export async function POST(req: NextRequest) {
     // If revision instructions provided, refine the prompt first
     const finalPrompt = revision ? await refinePrompt(prompt, revision) : prompt
 
-    const result = provider === 'dalle'
-      ? await generateWithDalle(finalPrompt, platform)
-      : await generateWithGemini(finalPrompt, platform)
+    let result: { url: string }
+    let usedProvider = provider
+    let fallbackUsed = false
 
-    return NextResponse.json({ 
-      ok: true, 
-      url: result.url, 
-      provider,
+    if (provider === 'dalle') {
+      result = await generateWithDalle(finalPrompt, platform)
+    } else {
+      // Gemini with auto-fallback to DALL-E on timeout/error (if OPENAI key exists)
+      try {
+        result = await generateWithGemini(finalPrompt, platform)
+      } catch (geminiErr) {
+        const msg = geminiErr instanceof Error ? geminiErr.message : ''
+        const isTimeout = msg.includes('timeout') || msg.includes('AbortError') || msg.includes('aborted')
+        const isUnavailable = msg.includes('503') || msg.includes('overloaded') || msg.includes('UNAVAILABLE')
+        console.error('Gemini failed:', msg)
+        if ((isTimeout || isUnavailable) && process.env.OPENAI_API_KEY) {
+          console.log('Falling back to DALL-E 3...')
+          result = await generateWithDalle(finalPrompt, platform)
+          usedProvider = 'dalle'
+          fallbackUsed = true
+        } else {
+          throw geminiErr
+        }
+      }
+    }
+
+    return NextResponse.json({
+      ok: true,
+      url: result.url,
+      provider: usedProvider,
       finalPrompt,
+      fallbackUsed,
     })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Blad generowania obrazka'
-    console.error(err)
+    console.error('generate-image error:', err)
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }

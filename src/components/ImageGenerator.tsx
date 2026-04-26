@@ -52,6 +52,8 @@ export default function ImageGenerator({
   const [revisionText, setRevisionText] = useState('')
   const [showEditor, setShowEditor] = useState(false)
   const [editedUrl, setEditedUrl] = useState<string | null>(null)
+  const [elapsed, setElapsed] = useState(0)
+  const [info, setInfo] = useState('')
 
   const heightClass = size === 'sm' ? 'max-h-48' : size === 'lg' ? 'max-h-96' : 'max-h-64'
   const providerLabel = provider === 'dalle' ? 'DALL-E 3' : 'Nano Banana'
@@ -61,15 +63,25 @@ export default function ImageGenerator({
   async function generate(revision?: string) {
     setGenerating(true)
     setError('')
+    setInfo('')
+    setElapsed(0)
+    const startTime = Date.now()
+    const timer = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startTime) / 1000))
+    }, 1000)
+    // Hard timeout client-side at 110s (Vercel server cuts at 120s)
+    const abortController = new AbortController()
+    const hardTimeout = setTimeout(() => abortController.abort(), 110_000)
     try {
       const fullPrompt = initialPrompt + brandingPromptSuffix
       const res = await fetch('/api/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: fullPrompt, platform, provider, revision }),
+        signal: abortController.signal,
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
       const newIter: ImageIteration = {
         url: data.url,
         prompt: data.finalPrompt || fullPrompt,
@@ -82,20 +94,36 @@ export default function ImageGenerator({
         setEditedUrl(null)
         return next
       })
-      
+      if (data.fallbackUsed) {
+        setInfo('ℹ️ Nano Banana niedostępny — automatycznie użyto DALL-E 3')
+      }
       if (onImageGenerated) {
         onImageGenerated({
           url: data.url,
           prompt: data.finalPrompt || fullPrompt,
           platform,
-          provider,
+          provider: data.provider || provider,
         })
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Błąd')
+      if (e instanceof Error && (e.name === 'AbortError' || e.message === 'aborted')) {
+        setError('Anulowane przez użytkownika lub timeout (>110s). Spróbuj DALL-E albo zmień prompt.')
+      } else {
+        setError(e instanceof Error ? e.message : 'Błąd')
+      }
     } finally {
+      clearTimeout(hardTimeout)
+      clearInterval(timer)
       setGenerating(false)
+      setElapsed(0)
     }
+  }
+
+  function cancelGeneration() {
+    // Note: we can't easily abort the in-flight fetch from outside generate(),
+    // so this is a soft reset. The hard 110s timeout will eventually fire.
+    setGenerating(false)
+    setError('Anulowane (uwaga: zapytanie do AI może wciąż działać w tle)')
   }
 
   function handleRevise() {
@@ -152,11 +180,27 @@ export default function ImageGenerator({
               </button>
             </div>
           )}
-          <button onClick={() => generate()} disabled={generating}
-            className="text-xs py-2 px-4 rounded-lg transition-all disabled:opacity-50"
-            style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: '#a5b4fc' }}>
-            {generating ? <><Spinner /> Generuję...</> : `🎨 Wygeneruj grafikę (${providerLabel})`}
-          </button>
+          <div className="flex gap-2 items-center">
+            <button onClick={() => generate()} disabled={generating}
+              className="flex-1 text-xs py-2 px-4 rounded-lg transition-all disabled:opacity-50"
+              style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: '#a5b4fc' }}>
+              {generating
+                ? <><Spinner /> Generuję ({elapsed}s)... {elapsed > 30 ? '⏳ Może chwilę potrwać' : ''}</>
+                : `🎨 Wygeneruj grafikę (${providerLabel})`}
+            </button>
+            {generating && (
+              <button onClick={cancelGeneration}
+                className="text-[10px] py-2 px-3 rounded-lg transition-all"
+                style={{ background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.25)', color: '#fca5a5' }}>
+                ✕ Anuluj
+              </button>
+            )}
+          </div>
+          {generating && elapsed > 50 && (
+            <p className="text-[10px] text-yellow-400 mt-2">
+              ⚠️ Przekroczono 50s — Gemini może być przeciążony. Po 70s automatycznie spróbuję DALL-E.
+            </p>
+          )}
         </div>
       ) : (
         <>
@@ -261,6 +305,7 @@ export default function ImageGenerator({
       )}
 
       {error && <p className="text-xs text-red-400">{error}</p>}
+      {info && !error && <p className="text-xs text-yellow-400">{info}</p>}
 
       {showEditor && displayUrl && (
         <ImageEditor
