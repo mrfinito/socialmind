@@ -112,22 +112,25 @@ export default function Sidebar() {
   ]
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-[220px] flex flex-col z-20 overflow-y-auto"
-      style={{background:'#0d1018',borderRight:'1px solid rgba(255,255,255,0.06)'}}>
+    <aside className="fixed left-0 top-0 h-screen w-[220px] flex flex-col z-20 overflow-y-auto sm-sidebar-bg"
+      style={{borderRight:'1px solid rgba(255,255,255,0.06)'}}>
       {/* Logo */}
       <div className="px-5 py-4 shrink-0" style={{borderBottom:'1px solid rgba(255,255,255,0.06)'}}>
-        <Link href="/" className="flex items-center gap-2.5 mb-3 transition-opacity hover:opacity-80">
-          {customLogo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={customLogo} alt="Logo" className="w-7 h-7 rounded-lg object-cover" />
-          ) : (
-            <div className="w-7 h-7 bg-indigo-500 rounded-lg flex items-center justify-center"
-              style={{boxShadow:'0 0 12px rgba(99,102,241,0.4)'}}>
-              <span className="text-white text-sm font-bold">✦</span>
-            </div>
-          )}
-          <span className="font-semibold text-white text-sm tracking-tight">{customAppName || 'SocialMind'}</span>
-        </Link>
+        <div className="flex items-center justify-between mb-3">
+          <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
+            {customLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={customLogo} alt="Logo" className="w-7 h-7 rounded-lg object-cover" />
+            ) : (
+              <div className="w-7 h-7 bg-indigo-500 rounded-lg flex items-center justify-center"
+                style={{boxShadow:'0 0 12px rgba(99,102,241,0.4)'}}>
+                <span className="text-white text-sm font-bold">✦</span>
+              </div>
+            )}
+            <span className="font-semibold text-white text-sm tracking-tight">{customAppName || 'SocialMind'}</span>
+          </Link>
+          <ThemeIconToggle />
+        </div>
         {/* Active project pill */}
         {activeProject && (
           <Link href="/projekty"
@@ -205,5 +208,50 @@ export default function Sidebar() {
         <div className="mt-2"><ThemeToggle /></div>
       </div>
     </aside>
+  )
+}
+
+// Small icon-only toggle, shown in sidebar header
+function ThemeIconToggle() {
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    try {
+      const saved = (localStorage.getItem('sm:theme') as 'dark' | 'light' | null) || 'dark'
+      setTheme(saved)
+      setMounted(true)
+    } catch {
+      setMounted(true)
+    }
+    const onChange = (e: Event) => {
+      const next = (e as CustomEvent).detail as 'dark' | 'light'
+      if (next === 'dark' || next === 'light') setTheme(next)
+    }
+    window.addEventListener('sm-theme-changed', onChange as EventListener)
+    return () => window.removeEventListener('sm-theme-changed', onChange as EventListener)
+  }, [])
+
+  function toggle() {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    setTheme(next)
+    document.body.classList.toggle('light-mode', next === 'light')
+    try { localStorage.setItem('sm:theme', next) } catch {}
+    window.dispatchEvent(new CustomEvent('sm-theme-changed', { detail: next }))
+  }
+
+  if (!mounted) return <div style={{ width: 28, height: 28 }} />
+
+  return (
+    <button onClick={toggle}
+      title={theme === 'dark' ? 'Włącz jasny motyw' : 'Włącz ciemny motyw'}
+      className="w-7 h-7 flex items-center justify-center rounded-lg transition-all"
+      style={{
+        background: 'rgba(255,255,255,0.04)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        fontSize: 13,
+      }}>
+      {theme === 'dark' ? '☀️' : '🌙'}
+    </button>
   )
 }

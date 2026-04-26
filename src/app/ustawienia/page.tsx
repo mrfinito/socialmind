@@ -98,6 +98,9 @@ export default function UstawieniaPage() {
 
         <div className="space-y-5">
 
+          {/* Theme switcher */}
+          <ThemeSection />
+
           {/* Personalization (white-label branding) */}
           <div className="card">
             <div className="flex items-start gap-3 mb-4">
@@ -351,5 +354,88 @@ export default function UstawieniaPage() {
         </div>
       </div>
     </AppShell>
+  )
+}
+
+// === Theme switcher section ===
+function ThemeSection() {
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+
+  useEffect(() => {
+    try {
+      const saved = (localStorage.getItem('sm:theme') as 'dark' | 'light' | null) || 'dark'
+      setTheme(saved)
+    } catch {}
+  }, [])
+
+  function setMode(next: 'dark' | 'light') {
+    setTheme(next)
+    document.body.classList.toggle('light-mode', next === 'light')
+    try { localStorage.setItem('sm:theme', next) } catch {}
+    window.dispatchEvent(new CustomEvent('sm-theme-changed', { detail: next }))
+  }
+
+  return (
+    <div className="card">
+      <div className="flex items-start gap-3 mb-4">
+        <span className="text-2xl">{theme === 'dark' ? '🌙' : '☀️'}</span>
+        <div>
+          <h2 className="text-base font-semibold text-white">Motyw aplikacji</h2>
+          <p className="text-gray-500 text-xs mt-0.5">
+            Wybierz preferowany schemat kolorów. Zapisuje się w przeglądarce.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          onClick={() => setMode('dark')}
+          className="p-4 rounded-xl text-left transition-all"
+          style={{
+            background: theme === 'dark' ? 'rgba(99,102,241,0.10)' : 'rgba(255,255,255,0.03)',
+            border: theme === 'dark' ? '2px solid #6366f1' : '2px solid rgba(255,255,255,0.06)',
+          }}>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xl">🌙</span>
+            <span className="font-semibold text-white text-sm">Ciemny</span>
+            {theme === 'dark' && <span className="ml-auto text-[10px] text-indigo-300">✓ Aktywny</span>}
+          </div>
+          {/* Mini preview */}
+          <div className="h-16 rounded-lg flex items-center px-3 gap-2"
+            style={{ background: '#0f1117', border: '1px solid #262a35' }}>
+            <div className="w-3 h-3 rounded-full" style={{ background: '#6366f1' }} />
+            <div className="flex-1 h-1 rounded" style={{ background: 'rgba(255,255,255,0.1)' }} />
+            <div className="w-6 h-3 rounded" style={{ background: 'rgba(99,102,241,0.3)' }} />
+          </div>
+          <p className="text-[10px] text-gray-500 mt-2">Przyjazny dla oczu wieczorem</p>
+        </button>
+
+        <button
+          onClick={() => setMode('light')}
+          className="p-4 rounded-xl text-left transition-all"
+          style={{
+            background: theme === 'light' ? 'rgba(99,102,241,0.10)' : 'rgba(255,255,255,0.03)',
+            border: theme === 'light' ? '2px solid #6366f1' : '2px solid rgba(255,255,255,0.06)',
+          }}>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xl">☀️</span>
+            <span className="font-semibold text-white text-sm">Jasny</span>
+            {theme === 'light' && <span className="ml-auto text-[10px] text-indigo-300">✓ Aktywny</span>}
+          </div>
+          {/* Mini preview */}
+          <div className="h-16 rounded-lg flex items-center px-3 gap-2"
+            style={{ background: '#f8fafc', border: '1px solid #e5e7eb' }}>
+            <div className="w-3 h-3 rounded-full" style={{ background: '#6366f1' }} />
+            <div className="flex-1 h-1 rounded" style={{ background: '#e5e7eb' }} />
+            <div className="w-6 h-3 rounded" style={{ background: 'rgba(99,102,241,0.3)' }} />
+          </div>
+          <p className="text-[10px] text-gray-500 mt-2">Czytelniejszy w ciągu dnia</p>
+        </button>
+      </div>
+
+      <p className="text-[10px] text-gray-600 mt-3">
+        💡 Możesz też przełączać motyw szybkim przyciskiem ☀️/🌙 na dole sidebara.
+      </p>
+    </div>
   )
 }

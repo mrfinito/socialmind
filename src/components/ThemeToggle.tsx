@@ -2,15 +2,42 @@
 import { useEffect, useState } from 'react'
 
 export default function ThemeToggle() {
-  const [theme, setTheme] = useState<'dark'|'light'>('dark')
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('sm:theme') as 'dark'|'light' | null
-      const initial = saved || 'dark'
-      setTheme(initial)
-      document.body.classList.toggle('light-mode', initial === 'light')
-    } catch {}
+      const saved = (localStorage.getItem('sm:theme') as 'dark' | 'light' | null) || 'dark'
+      setTheme(saved)
+      document.body.classList.toggle('light-mode', saved === 'light')
+      // Remove the preload helper class once React takes over
+      document.documentElement.classList.remove('preload-light')
+      setMounted(true)
+    } catch {
+      setMounted(true)
+    }
+
+    // Listen to changes from other parts of the app (e.g. settings page)
+    const onChange = (e: Event) => {
+      const next = (e as CustomEvent).detail as 'dark' | 'light'
+      if (next === 'dark' || next === 'light') {
+        setTheme(next)
+        document.body.classList.toggle('light-mode', next === 'light')
+      }
+    }
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'sm:theme' && e.newValue) {
+        const next = e.newValue as 'dark' | 'light'
+        setTheme(next)
+        document.body.classList.toggle('light-mode', next === 'light')
+      }
+    }
+    window.addEventListener('sm-theme-changed', onChange as EventListener)
+    window.addEventListener('storage', onStorage)
+    return () => {
+      window.removeEventListener('sm-theme-changed', onChange as EventListener)
+      window.removeEventListener('storage', onStorage)
+    }
   }, [])
 
   function toggle() {
@@ -18,6 +45,12 @@ export default function ThemeToggle() {
     setTheme(next)
     document.body.classList.toggle('light-mode', next === 'light')
     try { localStorage.setItem('sm:theme', next) } catch {}
+    window.dispatchEvent(new CustomEvent('sm-theme-changed', { detail: next }))
+  }
+
+  if (!mounted) {
+    // Prevent hydration mismatch — render placeholder
+    return <div style={{ height: 36 }} />
   }
 
   return (

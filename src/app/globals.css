@@ -3,8 +3,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* No-flash: when light theme is preloaded, set body bg before React hydrates */
+html.preload-light body { background: #f8fafc; color: #1f2937; }
+
 * { box-sizing: border-box; }
 body { font-family: 'Inter', system-ui, sans-serif; background: #0f1117; color: #e8eaf0; }
+
+/* Themable background classes (use these instead of hardcoded bg-[#xxx]) */
+.sm-main-bg { background: #0f1117; }
+body.light-mode .sm-main-bg { background: #f8fafc; }
+.sm-sidebar-bg { background: #0d1018; }
+body.light-mode .sm-sidebar-bg { background: #ffffff; }
 
 @layer components {
   .btn-primary {
@@ -129,4 +138,50 @@ body.light-mode [style*="background:rgba(255,255,255,0.0"] {
 body.light-mode [style*="border: 1px solid rgba(255,255,255,0.0"],
 body.light-mode [style*="border:1px solid rgba(255,255,255,0.0"] {
   border-color: rgba(0,0,0,0.08) !important;
+}
+
+/* Additional gray text scale */
+body.light-mode .text-gray-200 { color: #1f2937 !important; }
+body.light-mode .text-gray-100 { color: #111827 !important; }
+
+/* Borders using Tailwind /5, /10 with white opacity */
+body.light-mode .border-white\/5,
+body.light-mode .border-white\/10 { border-color: rgba(0,0,0,0.08) !important; }
+
+/* Hover states with white opacity */
+body.light-mode .hover\:bg-white\/5:hover { background-color: rgba(0,0,0,0.04) !important; }
+body.light-mode .hover\:bg-white\/10:hover { background-color: rgba(0,0,0,0.06) !important; }
+
+/* Background opacity helpers used inline */
+body.light-mode .bg-white\/5 { background-color: rgba(0,0,0,0.04) !important; }
+body.light-mode .bg-white\/10 { background-color: rgba(0,0,0,0.06) !important; }
+
+/* Tags */
+body.light-mode .tag-inactive {
+  background: rgba(0,0,0,0.04) !important;
+  border-color: rgba(0,0,0,0.10) !important;
+  color: #4b5563 !important;
+}
+body.light-mode .tag-inactive:hover { color: #1f2937 !important; }
+
+/* Modal dark backdrops keep dark, but modal content adapt */
+body.light-mode div[style*="background: #0f1423"],
+body.light-mode div[style*="background:#0f1423"] {
+  background: #ffffff !important;
+  border-color: rgba(0,0,0,0.10) !important;
+}
+
+/* Status chips with low-opacity backgrounds */
+body.light-mode [style*="background: rgba(99,102,241,0.0"],
+body.light-mode [style*="background: rgba(16,185,129,0.0"],
+body.light-mode [style*="background: rgba(251,146,60,0.0"],
+body.light-mode [style*="background: rgba(251,191,36,0.0"],
+body.light-mode [style*="background: rgba(168,85,247,0.0"] {
+  /* Keep these — they're already meant to be subtle and work in both modes */
+}
+
+/* Dark inline modal backgrounds — convert to light */
+body.light-mode div[style*="background: rgba(0,0,0,0.7"],
+body.light-mode div[style*="background:rgba(0,0,0,0.7"] {
+  background: rgba(0,0,0,0.4) !important;
 }

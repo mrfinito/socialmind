@@ -7,7 +7,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen">
       <Sidebar />
       <LimitBanner />
-      <main className="flex-1 ml-[220px] min-h-screen bg-[#0f1117]">
+      <main className="flex-1 ml-[220px] min-h-screen sm-main-bg">
         {children}
       </main>
     </div>
