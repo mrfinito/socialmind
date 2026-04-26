@@ -21,6 +21,7 @@ export default function Sidebar() {
         { href: '/brief',    icon: '📋', label: 'Briefy klientów', show: true },
         { href: '/wlasny-brief', icon: '📂', label: 'Własny brief', show: true },
         { href: '/grafika',  icon: '🖼️', label: 'Stwórz grafikę', show: true },
+        { href: '/prezentacja', icon: '🎤', label: 'Prezentacja', show: true },
         perms.can_generate_posts && { href: '/generuj',    icon: '✦', label: 'Generuj posty' },
         { href: '/biblioteka', icon: '📚', label: 'Biblioteka' },
         { href: '/scheduler',  icon: '📅', label: 'Scheduler' },
