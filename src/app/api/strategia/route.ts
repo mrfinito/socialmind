@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { checkGenerationLimit } from '@/lib/checkLimits'
+import { repairAIJSON } from '@/lib/repairJSON'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -265,80 +266,17 @@ ZWROC JSON O STRUKTURZE:
         }
 
         console.log('Strategia finished, length:', fullText.length)
-        const start = fullText.indexOf('{')
-        const end = fullText.lastIndexOf('}')
+        const { parsed, strategy } = repairAIJSON(fullText)
 
-        if (start === -1 || end === -1) {
-          send({ error: 'Brak JSON w odpowiedzi AI' })
-          sentDone = true
+        if (parsed) {
+          console.log('Strategia parsed OK via:', strategy)
+          send({ done: true, data: parsed })
         } else {
-          let clean = fullText.slice(start, end + 1)
-          let parsed = null
-
-          try { parsed = JSON.parse(clean) } catch {}
-          if (!parsed) {
-            // Fix newlines in strings
-            const fixed = clean.replace(/"[^"\\]*(?:\\.[^"\\]*)*"/g, (m) =>
-              m.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t')
-            )
-            try { parsed = JSON.parse(fixed) } catch {}
-            if (!parsed) {
-              // Remove trailing commas
-              const noCommas = fixed.replace(/,(\s*[}\]])/g, '$1')
-              try { parsed = JSON.parse(noCommas) } catch {}
-            }
-          }
-          
-          // If still not parsed, try to repair truncated JSON
-          if (!parsed) {
-            try {
-              // Try to find last complete structure and close remaining braces
-              let repaired = fullText.slice(start)
-              // Remove trailing incomplete content after last } or ]
-              const lastValidEnd = Math.max(
-                repaired.lastIndexOf('}'),
-                repaired.lastIndexOf(']')
-              )
-              if (lastValidEnd > 0) {
-                repaired = repaired.slice(0, lastValidEnd + 1)
-              }
-              // Count unclosed braces and brackets
-              let openBraces = 0, openBrackets = 0, inString = false, escape = false
-              for (let i = 0; i < repaired.length; i++) {
-                const ch = repaired[i]
-                if (escape) { escape = false; continue }
-                if (ch === '\\') { escape = true; continue }
-                if (ch === '"') { inString = !inString; continue }
-                if (inString) continue
-                if (ch === '{') openBraces++
-                if (ch === '}') openBraces--
-                if (ch === '[') openBrackets++
-                if (ch === ']') openBrackets--
-              }
-              // Close unclosed structures
-              while (openBrackets > 0) { repaired += ']'; openBrackets-- }
-              while (openBraces > 0) { repaired += '}'; openBraces-- }
-              // Also fix newlines
-              repaired = repaired.replace(/"[^"\\]*(?:\\.[^"\\]*)*"/g, (m) =>
-                m.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t')
-              )
-              repaired = repaired.replace(/,(\s*[}\]])/g, '$1')
-              parsed = JSON.parse(repaired)
-              console.log('Parsed truncated JSON via repair')
-            } catch {}
-          }
-
-          if (parsed) {
-            console.log('Strategia parsed OK')
-            send({ done: true, data: parsed })
-          } else {
-            console.error('Strategia parse failed. Raw len:', fullText.length)
-            console.error('First 500:', fullText.slice(0, 500))
-            console.error('Last 500:', fullText.slice(-500))
-            send({ error: 'Nie mozna przetworzyc JSON', debug: { len: fullText.length, first: fullText.slice(0, 200), last: fullText.slice(-200) } })
-          }
-          sentDone = true
+          console.error('Strategia parse failed. Raw len:', fullText.length)
+          console.error('Last 500:', fullText.slice(-500))
+          send({ error: 'Nie mozna przetworzyc JSON', debug: { len: fullText.length, last: fullText.slice(-300) } })
         }
+        sentDone = true
       } catch (err) {
         console.error('Strategia error:', err)
         send({ error: err instanceof Error ? err.message : 'Blad' })

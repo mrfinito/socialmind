@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { checkGenerationLimit } from '@/lib/checkLimits'
+import { repairAIJSON } from '@/lib/repairJSON'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -39,7 +40,13 @@ ZASADY RTM:
 - Hook musi zatrzymac scrollowanie w 2 sekundy
 - Hashtagi aktualne i popularne w PL
 
-Odpowiadasz WYLACZNIE poprawnym JSON bez zadnego tekstu przed ani po. Nie uzywaj markdown.`
+Odpowiadasz WYLACZNIE poprawnym JSON bez zadnego tekstu przed ani po. Nie uzywaj markdown.
+
+KRYTYCZNE - cudzyslowy w wartosciach JSON:
+- W tekstach postow, hookach, opisach NIE uzywaj prostych cudzyslowow " - to lamie JSON.
+- Jesli musisz cytowac, uzywaj polskich cudzyslowow drukarskich „..." albo apostrofow '...'
+- Przyklad ZLE: "text": "Mowilismy "tak" wszystkim"
+- Przyklad DOBRZE: "text": "Mowilismy „tak" wszystkim" lub "text": "Mowilismy 'tak' wszystkim"`
 
   const prompt = `REAL TIME MARKETING - ${today}
 
@@ -149,94 +156,34 @@ Wygeneruj DOKLADNIE 3 okazje RTM - wysoka jakosc per okazja, nie ilosc.`
         }
 
         console.log('RTM finished, length:', fullText.length)
-        const start = fullText.indexOf('{')
-        const end = fullText.lastIndexOf('}')
+        const { parsed, strategy } = repairAIJSON(fullText)
 
-        if (start === -1 || end === -1) {
-          send({ error: 'Brak JSON w odpowiedzi AI' })
+        if (parsed) {
+          console.log('RTM parsed OK via:', strategy)
+          send({ done: true, data: parsed })
           sentDone = true
         } else {
-          let clean = fullText.slice(start, end + 1)
-          let parsed = null
-
-          try { parsed = JSON.parse(clean) } catch {}
-          if (!parsed) {
-            // Fix newlines in strings
-            const fixed = clean.replace(/"[^"\\]*(?:\\.[^"\\]*)*"/g, (m) =>
-              m.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t')
-            )
-            try { parsed = JSON.parse(fixed) } catch {}
-            if (!parsed) {
-              // Remove trailing commas
-              const noCommas = fixed.replace(/,(\s*[}\]])/g, '$1')
-              try { parsed = JSON.parse(noCommas) } catch {}
+          console.error('RTM parse failed. Raw len:', fullText.length)
+          console.error('Last 500 chars:', fullText.slice(-500))
+          // Find error position for debugging
+          const start = fullText.indexOf('{')
+          const end = fullText.lastIndexOf('}')
+          const clean = end > start ? fullText.slice(start, end + 1) : fullText.slice(start)
+          try {
+            JSON.parse(clean)
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : ''
+            const match = msg.match(/position (\d+)/)
+            const debugInfo: Record<string, unknown> = { strategy: 'all-failed', len: fullText.length }
+            if (match) {
+              const pos = parseInt(match[1])
+              debugInfo.errorPos = pos
+              debugInfo.context = clean.slice(Math.max(0, pos - 100), pos + 100)
+              console.error('Error context:', debugInfo.context)
             }
+            send({ error: 'Nie mozna sparsowac JSON: ' + msg, debug: debugInfo })
+            sentDone = true
           }
-          
-          // If still not parsed, try to repair truncated JSON
-          if (!parsed) {
-            try {
-              // Try to find last complete structure and close remaining braces
-              let repaired = fullText.slice(start)
-              // Remove trailing incomplete content after last } or ]
-              const lastValidEnd = Math.max(
-                repaired.lastIndexOf('}'),
-                repaired.lastIndexOf(']')
-              )
-              if (lastValidEnd > 0) {
-                repaired = repaired.slice(0, lastValidEnd + 1)
-              }
-              // Count unclosed braces and brackets
-              let openBraces = 0, openBrackets = 0, inString = false, escape = false
-              for (let i = 0; i < repaired.length; i++) {
-                const ch = repaired[i]
-                if (escape) { escape = false; continue }
-                if (ch === '\\') { escape = true; continue }
-                if (ch === '"') { inString = !inString; continue }
-                if (inString) continue
-                if (ch === '{') openBraces++
-                if (ch === '}') openBraces--
-                if (ch === '[') openBrackets++
-                if (ch === ']') openBrackets--
-              }
-              // Close unclosed structures
-              while (openBrackets > 0) { repaired += ']'; openBrackets-- }
-              while (openBraces > 0) { repaired += '}'; openBraces-- }
-              // Also fix newlines
-              repaired = repaired.replace(/"[^"\\]*(?:\\.[^"\\]*)*"/g, (m) =>
-                m.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t')
-              )
-              repaired = repaired.replace(/,(\s*[}\]])/g, '$1')
-              parsed = JSON.parse(repaired)
-              console.log('Parsed truncated JSON via repair')
-            } catch {}
-          }
-
-          if (parsed) {
-            console.log('RTM parsed OK')
-            send({ done: true, data: parsed })
-          } else {
-            console.error('RTM parse failed. Raw len:', fullText.length)
-            console.error('Clean extracted:', clean.slice(0, 1000))
-            console.error('Clean end:', clean.slice(-500))
-            // Try one more time - find actual JSON error position
-            try {
-              JSON.parse(clean)
-            } catch (e) {
-              console.error('Parse error:', e instanceof Error ? e.message : e)
-              const msg = e instanceof Error ? e.message : ''
-              const match = msg.match(/position (\d+)/)
-              if (match) {
-                const pos = parseInt(match[1])
-                console.error('Error context:', clean.slice(Math.max(0, pos-100), pos+100))
-                send({ error: 'JSON error: ' + msg, debug: { errorPos: pos, context: clean.slice(Math.max(0, pos-100), pos+100) } })
-                sentDone = true
-                return
-              }
-            }
-            send({ error: 'Nie mozna przetworzyc JSON', debug: { len: fullText.length } })
-          }
-          sentDone = true
         }
       } catch (err) {
         console.error('RTM error:', err)
