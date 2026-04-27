@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useSyncExternalStore } from 'react'
 import { createClient } from './supabase'
 import type { BrandDNA, Platform, GeneratedContent, PostStatus, Project, PostDraft } from './types'
 import { PROJECT_COLORS, PROJECT_EMOJIS } from './types'
@@ -23,20 +23,47 @@ const DEFAULT: AppState = {
   materials: [],
 }
 
-export function useStore() {
-  const [state, setState] = useState<AppState>(DEFAULT)
-  const [ready, setReady] = useState(false)
-  const supabase = createClient()
-  const initialized = useRef(false)
+// === SHARED MODULE-LEVEL STATE ===
+// All useStore() callers share THIS one state object.
+// Without this, each useStore() call had its own React state (independent copies)
+// which caused: switchProject only affected one component, others kept showing old project.
+let SHARED_STATE: AppState = DEFAULT
+let SHARED_READY = false
+let SHARED_INITIALIZED = false
+const subscribers = new Set<() => void>()
 
-  // Load everything from Supabase on mount
+function getSnapshot(): AppState { return SHARED_STATE }
+function getReadySnapshot(): boolean { return SHARED_READY }
+function subscribe(cb: () => void): () => void {
+  subscribers.add(cb)
+  return () => { subscribers.delete(cb) }
+}
+function setSharedState(updater: AppState | ((prev: AppState) => AppState)) {
+  const next = typeof updater === 'function' ? (updater as (p: AppState) => AppState)(SHARED_STATE) : updater
+  if (next === SHARED_STATE) return
+  SHARED_STATE = next
+  subscribers.forEach(cb => cb())
+}
+function setSharedReady(ready: boolean) {
+  if (SHARED_READY === ready) return
+  SHARED_READY = ready
+  subscribers.forEach(cb => cb())
+}
+
+export function useStore() {
+  // Subscribe to shared state — every useStore() call sees the same data
+  const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  const ready = useSyncExternalStore(subscribe, getReadySnapshot, getReadySnapshot)
+  const supabase = createClient()
+
+  // Init only ONCE across the whole app (not once per component)
   useEffect(() => {
-    if (initialized.current) return
-    initialized.current = true
+    if (SHARED_INITIALIZED) return
+    SHARED_INITIALIZED = true
 
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setReady(true); return }
+      if (!user) { setSharedReady(true); return }
 
       // Load projects
       const { data: projects } = await supabase
@@ -49,10 +76,6 @@ export function useStore() {
       // Load materials (without data_url for performance — load on demand)
       const { data: materials } = await supabase
         .from('materials').select('id,name,type,size,project_id,created_at').order('created_at', { ascending: false })
-
-      // Load user permissions/limits
-      const { data: userPerms } = await supabase
-        .from('user_permissions').select('max_projects,max_posts_per_month').eq('user_id', user.id).maybeSingle()
 
       const mappedProjects: Project[] = (projects || []).map(p => ({
         id: p.id, name: p.name, client: p.client,
@@ -75,22 +98,26 @@ export function useStore() {
         projectId: m.project_id, addedAt: m.created_at,
       }))
 
-      const firstProjectId = mappedProjects[0]?.id || ''
+      // Try to restore last-active project from localStorage (cross-tab sync)
+      let lastActive = ''
+      try { lastActive = localStorage.getItem('sm:active-project') || '' } catch {}
+      const validLastActive = mappedProjects.find(p => p.id === lastActive)?.id || ''
+      const firstProjectId = validLastActive || mappedProjects[0]?.id || ''
 
-      setState({
+      setSharedState({
         user: { id: user.id, email: user.email || '', name: user.user_metadata?.full_name },
         activeProjectId: firstProjectId,
         projects: mappedProjects,
         drafts: mappedDrafts,
         materials: mappedMaterials,
       })
-      setReady(true)
+      setSharedReady(true)
     }
 
     init()
-  }, [])
+  }, [supabase])
 
-  // Computed
+  // Computed (derived from shared state, so identical for everyone)
   const activeProject = state.projects.find(p => p.id === state.activeProjectId) || state.projects[0]
   const dna = activeProject?.dna || null
   const selectedPlatforms = activeProject?.selectedPlatforms || ['facebook','instagram']
@@ -99,44 +126,36 @@ export function useStore() {
 
   // ── Project actions ────────────────────────────────────────
   const saveDNA = useCallback(async (dna: BrandDNA) => {
-    if (!state.activeProjectId) return
+    if (!SHARED_STATE.activeProjectId) return
     await supabase.from('projects').update({
       dna, updated_at: new Date().toISOString()
-    }).eq('id', state.activeProjectId)
-    setState(prev => ({
+    }).eq('id', SHARED_STATE.activeProjectId)
+    setSharedState(prev => ({
       ...prev,
       projects: prev.projects.map(p =>
         p.id === prev.activeProjectId ? { ...p, dna } : p
       )
     }))
-  }, [state.activeProjectId])
+  }, [supabase])
 
   const savePlatforms = useCallback(async (platforms: Platform[]) => {
-    if (!state.activeProjectId) return
-    // Optimistic update — change UI immediately
-    const projectId = state.activeProjectId
-    setState(prev => ({
+    const projectId = SHARED_STATE.activeProjectId
+    if (!projectId) return
+    // Optimistic update
+    setSharedState(prev => ({
       ...prev,
       projects: prev.projects.map(p =>
         p.id === projectId ? { ...p, selectedPlatforms: platforms } : p
       )
     }))
-    // Persist to DB in background
     const { error } = await supabase.from('projects').update({
       selected_platforms: platforms, updated_at: new Date().toISOString()
     }).eq('id', projectId)
     if (error) {
       console.error('savePlatforms DB error:', error)
-      // Rollback on error
-      setState(prev => ({
-        ...prev,
-        projects: prev.projects.map(p =>
-          p.id === projectId ? { ...p, selectedPlatforms: p.selectedPlatforms } : p
-        )
-      }))
       alert('Nie udało się zapisać platformy. Spróbuj ponownie.')
     }
-  }, [state.activeProjectId])
+  }, [supabase])
 
   const createProject = useCallback(async (name: string, client?: string, emoji?: string, color?: string) => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -147,20 +166,25 @@ export function useStore() {
       color: color || PROJECT_COLORS[Math.floor(Math.random()*PROJECT_COLORS.length)],
       selected_platforms: ['facebook','instagram'],
     }).select().single()
-    if (error || !data) return ''
+    if (error || !data) {
+      console.error('createProject DB error:', error)
+      return ''
+    }
     const newProject: Project = {
       id: data.id, name: data.name, client: data.client,
       emoji: data.emoji, color: data.color,
       selectedPlatforms: data.selected_platforms,
       createdAt: data.created_at,
     }
-    setState(prev => ({
+    // Set as active immediately
+    setSharedState(prev => ({
       ...prev,
       projects: [...prev.projects, newProject],
       activeProjectId: data.id,
     }))
+    try { localStorage.setItem('sm:active-project', data.id) } catch {}
     return data.id
-  }, [])
+  }, [supabase])
 
   const updateProject = useCallback(async (id: string, updates: Partial<Project>) => {
     const dbUpdates: Record<string, unknown> = {}
@@ -171,27 +195,33 @@ export function useStore() {
     if (updates.selectedPlatforms) dbUpdates.selected_platforms = updates.selectedPlatforms
     dbUpdates.updated_at = new Date().toISOString()
     await supabase.from('projects').update(dbUpdates).eq('id', id)
-    setState(prev => ({
+    setSharedState(prev => ({
       ...prev,
       projects: prev.projects.map(p => p.id === id ? { ...p, ...updates } : p)
     }))
-  }, [])
+  }, [supabase])
 
   const deleteProject = useCallback(async (id: string) => {
     await supabase.from('projects').delete().eq('id', id)
-    setState(prev => {
+    setSharedState(prev => {
       const remaining = prev.projects.filter(p => p.id !== id)
+      const newActive = prev.activeProjectId === id ? (remaining[0]?.id || '') : prev.activeProjectId
+      try {
+        if (newActive) localStorage.setItem('sm:active-project', newActive)
+        else localStorage.removeItem('sm:active-project')
+      } catch {}
       return {
         ...prev,
         projects: remaining,
-        activeProjectId: prev.activeProjectId === id ? (remaining[0]?.id || '') : prev.activeProjectId,
+        activeProjectId: newActive,
         drafts: prev.drafts.filter(d => d.projectId !== id),
       }
     })
-  }, [])
+  }, [supabase])
 
   const switchProject = useCallback((id: string) => {
-    setState(prev => ({ ...prev, activeProjectId: id }))
+    setSharedState(prev => ({ ...prev, activeProjectId: id }))
+    try { localStorage.setItem('sm:active-project', id) } catch {}
   }, [])
 
   // ── Draft actions ──────────────────────────────────────────
@@ -199,12 +229,13 @@ export function useStore() {
     topic: string; platforms: Platform[]; content: GeneratedContent;
     dna?: BrandDNA; goals?: string[]; tones?: string[]
   }) => {
-    if (!state.activeProjectId) return ''
+    const projectId = SHARED_STATE.activeProjectId
+    if (!projectId) return ''
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return ''
     const { data: row, error } = await supabase.from('drafts').insert({
       user_id: user.id,
-      project_id: state.activeProjectId,
+      project_id: projectId,
       status: 'draft',
       topic: data.topic,
       platforms: data.platforms,
@@ -221,9 +252,9 @@ export function useStore() {
       content: row.content, dna: row.dna,
       createdAt: row.created_at, updatedAt: row.updated_at,
     }
-    setState(prev => ({ ...prev, drafts: [newDraft, ...prev.drafts] }))
+    setSharedState(prev => ({ ...prev, drafts: [newDraft, ...prev.drafts] }))
     return row.id
-  }, [state.activeProjectId])
+  }, [supabase])
 
   const saveDraft = savePost
 
@@ -237,18 +268,18 @@ export function useStore() {
     if (updates.content !== undefined) dbUpdates.content = updates.content
     dbUpdates.updated_at = new Date().toISOString()
     await supabase.from('drafts').update(dbUpdates).eq('id', id)
-    setState(prev => ({
+    setSharedState(prev => ({
       ...prev,
       drafts: prev.drafts.map(d => d.id === id ? {
         ...d, ...updates, updatedAt: new Date().toISOString()
       } : d)
     }))
-  }, [])
+  }, [supabase])
 
   const deleteDraft = useCallback(async (id: string) => {
     await supabase.from('drafts').delete().eq('id', id)
-    setState(prev => ({ ...prev, drafts: prev.drafts.filter(d => d.id !== id) }))
-  }, [])
+    setSharedState(prev => ({ ...prev, drafts: prev.drafts.filter(d => d.id !== id) }))
+  }, [supabase])
 
   const scheduleDraft = useCallback((id: string, scheduledAt: string) => {
     updateDraft(id, { scheduledAt, status: 'scheduled' })
@@ -260,25 +291,26 @@ export function useStore() {
 
   // ── Material actions ───────────────────────────────────────
   const addMaterial = useCallback(async (m: { name: string; type: string; size: string; dataUrl?: string }) => {
+    const projectId = SHARED_STATE.activeProjectId
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user || !state.activeProjectId) return
+    if (!user || !projectId) return
     const { data: row } = await supabase.from('materials').insert({
       user_id: user.id,
-      project_id: state.activeProjectId,
+      project_id: projectId,
       name: m.name, type: m.type, size: m.size,
       data_url: m.dataUrl,
     }).select('id,name,type,size,project_id,created_at').single()
     if (!row) return
-    setState(prev => ({
+    setSharedState(prev => ({
       ...prev,
       materials: [{ id: row.id, name: row.name, type: row.type, size: row.size, projectId: row.project_id, addedAt: row.created_at }, ...prev.materials]
     }))
-  }, [state.activeProjectId])
+  }, [supabase])
 
   const deleteMaterial = useCallback(async (id: string) => {
     await supabase.from('materials').delete().eq('id', id)
-    setState(prev => ({ ...prev, materials: prev.materials.filter(m => m.id !== id) }))
-  }, [])
+    setSharedState(prev => ({ ...prev, materials: prev.materials.filter(m => m.id !== id) }))
+  }, [supabase])
 
   return {
     state, ready,

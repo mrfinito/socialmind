@@ -37,12 +37,15 @@ export default function ProjektyPage() {
     setCopiedBrief(projectId); setTimeout(() => setCopiedBrief(null), 1500)
   }
 
-  function handleCreate() {
+  async function handleCreate() {
     if (!name.trim()) return
-    const id = createProject(name, client || undefined, selEmoji, selColor)
+    const id = await createProject(name, client || undefined, selEmoji, selColor)
     setShowNew(false); setName(''); setClient('')
-    router.push('/')
-    void id
+    if (id) {
+      router.push('/')
+    } else {
+      alert('Nie udało się utworzyć projektu. Sprawdź limit projektów lub spróbuj ponownie.')
+    }
   }
 
   function handleSwitch(id: string) {
