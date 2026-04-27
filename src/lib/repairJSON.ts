@@ -79,5 +79,63 @@ export function repairAIJSON(rawText: string): RepairResult {
     return { parsed: JSON.parse(repaired), strategy: 'jsonrepair-raw' }
   } catch {}
 
+  // Step 8: NUCLEAR OPTION - truncate to error position and re-close
+  // If parser says "error at position 2379", we know everything up to ~2378 was valid.
+  // Truncate, find a safe cut point (after last complete value), re-close all open structs.
+  try {
+    let errorPos = candidate.length
+    try { JSON.parse(candidate) } catch (e) {
+      const m = e instanceof Error ? e.message.match(/position (\d+)/) : null
+      if (m) errorPos = parseInt(m[1])
+    }
+    
+    // Find safe cut: walk back from errorPos to find last `,` or `}` or `]` outside strings
+    let safeCut = -1
+    let inStr = false, esc = false, depth = 0
+    for (let i = 0; i < Math.min(errorPos, candidate.length); i++) {
+      const ch = candidate[i]
+      if (esc) { esc = false; continue }
+      if (ch === '\\') { esc = true; continue }
+      if (ch === '"') { inStr = !inStr; continue }
+      if (inStr) continue
+      if (ch === '{' || ch === '[') depth++
+      else if (ch === '}' || ch === ']') depth--
+      // Mark safe cut after each complete value (comma at depth>=1)
+      if ((ch === ',' || ch === '}' || ch === ']') && depth >= 0) {
+        safeCut = i
+      }
+    }
+    
+    if (safeCut > 0) {
+      let truncated = candidate.slice(0, safeCut)
+      // Remove trailing comma if present
+      truncated = truncated.replace(/,\s*$/, '')
+      // Re-close all open structures
+      let openB = 0, openSq = 0
+      let inStr2 = false, esc2 = false
+      for (let i = 0; i < truncated.length; i++) {
+        const ch = truncated[i]
+        if (esc2) { esc2 = false; continue }
+        if (ch === '\\') { esc2 = true; continue }
+        if (ch === '"') { inStr2 = !inStr2; continue }
+        if (inStr2) continue
+        if (ch === '{') openB++
+        else if (ch === '}') openB--
+        else if (ch === '[') openSq++
+        else if (ch === ']') openSq--
+      }
+      while (openSq > 0) { truncated += ']'; openSq-- }
+      while (openB > 0) { truncated += '}'; openB-- }
+      
+      // Try direct parse first, then jsonrepair
+      try {
+        return { parsed: JSON.parse(truncated), strategy: 'truncated-at-error' }
+      } catch {
+        const repaired = jsonrepair(truncated)
+        return { parsed: JSON.parse(repaired), strategy: 'truncated-then-repaired' }
+      }
+    }
+  } catch {}
+
   return { parsed: null, strategy: 'all-failed' }
 }

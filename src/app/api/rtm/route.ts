@@ -43,10 +43,18 @@ ZASADY RTM:
 Odpowiadasz WYLACZNIE poprawnym JSON bez zadnego tekstu przed ani po. Nie uzywaj markdown.
 
 KRYTYCZNE - cudzyslowy w wartosciach JSON:
-- W tekstach postow, hookach, opisach NIE uzywaj prostych cudzyslowow " - to lamie JSON.
-- Jesli musisz cytowac, uzywaj polskich cudzyslowow drukarskich „..." albo apostrofow '...'
-- Przyklad ZLE: "text": "Mowilismy "tak" wszystkim"
-- Przyklad DOBRZE: "text": "Mowilismy „tak" wszystkim" lub "text": "Mowilismy 'tak' wszystkim"`
+- W tekstach postow, hookach, opisach NIGDY nie uzywaj prostych cudzyslowow " w srodku wartosci - to LAMIE JSON.
+- Zamiast " uzywaj WYLACZNIE apostrofow ' - prosty single-quote.
+- Przyklad ZLE: "text": "Mowilismy "tak" wszystkim"   <- NIEPOPRAWNY JSON
+- Przyklad DOBRZE: "text": "Mowilismy 'tak' wszystkim"  <- POPRAWNY JSON
+- Nawet w pol jak "rationale", "why", "context", "hook" - tylko apostrofy '.
+
+DRUGIE WAZNE: Trzymaj kazde pole zwiezle:
+- "title" max 60 znakow
+- "hook" max 100 znakow  
+- "why" max 200 znakow
+- kazdy "post" w sample posts max 250 znakow
+Dluzsze teksty czesto zawieraja apostrofy/cudzyslowy ktore lamia JSON.`
 
   const prompt = `REAL TIME MARKETING - ${today}
 
@@ -165,24 +173,42 @@ Wygeneruj DOKLADNIE 3 okazje RTM - wysoka jakosc per okazja, nie ilosc.`
         } else {
           console.error('RTM parse failed. Raw len:', fullText.length)
           console.error('Last 500 chars:', fullText.slice(-500))
-          // Find error position for debugging
-          const start = fullText.indexOf('{')
-          const end = fullText.lastIndexOf('}')
-          const clean = end > start ? fullText.slice(start, end + 1) : fullText.slice(start)
-          try {
-            JSON.parse(clean)
-          } catch (e) {
-            const msg = e instanceof Error ? e.message : ''
-            const match = msg.match(/position (\d+)/)
-            const debugInfo: Record<string, unknown> = { strategy: 'all-failed', len: fullText.length }
-            if (match) {
-              const pos = parseInt(match[1])
-              debugInfo.errorPos = pos
-              debugInfo.context = clean.slice(Math.max(0, pos - 100), pos + 100)
-              console.error('Error context:', debugInfo.context)
-            }
-            send({ error: 'Nie mozna sparsowac JSON: ' + msg, debug: debugInfo })
+          
+          // LAST RESORT: try to extract individual opportunities from broken JSON
+          // by matching pattern { "id": "...", "title": "...", ... }
+          const partial = extractPartialOpportunities(fullText)
+          if (partial.length >= 3) {
+            console.log(`RTM: extracted ${partial.length} opportunities from broken JSON`)
+            send({
+              done: true,
+              data: {
+                date: new Date().toLocaleDateString('pl-PL'),
+                opportunities: partial,
+                _partial: true,
+                _warning: `AI zwróciło niepoprawny JSON. Udało się odzyskać ${partial.length} okazji RTM.`
+              }
+            })
             sentDone = true
+          } else {
+            // Find error position for debugging
+            const start = fullText.indexOf('{')
+            const end = fullText.lastIndexOf('}')
+            const clean = end > start ? fullText.slice(start, end + 1) : fullText.slice(start)
+            try {
+              JSON.parse(clean)
+            } catch (e) {
+              const msg = e instanceof Error ? e.message : ''
+              const match = msg.match(/position (\d+)/)
+              const debugInfo: Record<string, unknown> = { strategy: 'all-failed', len: fullText.length }
+              if (match) {
+                const pos = parseInt(match[1])
+                debugInfo.errorPos = pos
+                debugInfo.context = clean.slice(Math.max(0, pos - 100), pos + 100)
+                console.error('Error context:', debugInfo.context)
+              }
+              send({ error: 'Nie mozna sparsowac JSON: ' + msg, debug: debugInfo })
+              sentDone = true
+            }
           }
         }
       } catch (err) {
@@ -204,4 +230,55 @@ Wygeneruj DOKLADNIE 3 okazje RTM - wysoka jakosc per okazja, nie ilosc.`
       'X-Accel-Buffering': 'no',
     }
   })
+}
+
+// Last-resort extraction: pull individual opportunity objects from possibly-broken JSON.
+// Each opportunity is roughly: { "id": "...", "title": "...", "category": "...", ... }
+// Even if the array is unclosed or one object is malformed, we can recover others.
+import { jsonrepair } from 'jsonrepair'
+
+function extractPartialOpportunities(text: string): unknown[] {
+  const opportunities: unknown[] = []
+  
+  // Find all { ... } blocks that look like opportunities
+  // Walk through tracking brace depth
+  let depth = 0
+  let inStr = false
+  let esc = false
+  let blockStart = -1
+  
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (esc) { esc = false; continue }
+    if (ch === '\\') { esc = true; continue }
+    if (ch === '"') { inStr = !inStr; continue }
+    if (inStr) continue
+    
+    if (ch === '{') {
+      if (depth === 1) blockStart = i  // depth 1 = we're inside top-level "opportunities" array
+      depth++
+    } else if (ch === '}') {
+      depth--
+      if (depth === 1 && blockStart >= 0) {
+        const block = text.slice(blockStart, i + 1)
+        // Quick check: must contain at least "id" or "title"
+        if (/"(id|title|category|why)"/.test(block)) {
+          try {
+            opportunities.push(JSON.parse(block))
+          } catch {
+            // Try jsonrepair on this single block
+            try {
+              const repaired = jsonrepair(block)
+              opportunities.push(JSON.parse(repaired))
+            } catch {
+              // Skip this broken object
+            }
+          }
+        }
+        blockStart = -1
+      }
+    }
+  }
+  
+  return opportunities
 }
