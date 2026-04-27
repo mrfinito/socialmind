@@ -95,7 +95,8 @@ export default function ImageGenerator({
         return next
       })
       if (data.fallbackUsed) {
-        setInfo('ℹ️ Nano Banana niedostępny — automatycznie użyto DALL-E 3')
+        // (kept for backward compat — fallback removed but field harmless if absent)
+        setInfo('ℹ️ Użyto alternatywnego dostawcy')
       }
       if (onImageGenerated) {
         onImageGenerated({
@@ -198,7 +199,7 @@ export default function ImageGenerator({
           </div>
           {generating && elapsed > 50 && (
             <p className="text-[10px] text-yellow-400 mt-2">
-              ⚠️ Przekroczono 50s — Gemini może być przeciążony. Po 70s automatycznie spróbuję DALL-E.
+              ⚠️ Gemini może być przeciążony. Próbuję automatycznie do 3 razy z odstępami 3-9s.
             </p>
           )}
         </div>

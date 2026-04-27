@@ -58,25 +58,42 @@ async function generateWithDalle(prompt: string, platform: string) {
   if (!process.env.OPENAI_API_KEY) throw new Error('Brak klucza OPENAI_API_KEY')
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 90_000 })
   const size = DALLE_SIZE_MAP[platform] || '1024x1024'
-  const response = await openai.images.generate({
-    model: 'dall-e-3',
-    prompt: prompt.slice(0, 4000),
-    n: 1,
-    size,
-    quality: 'standard',
-    style: 'natural',
-  })
-  const url = response.data?.[0]?.url
-  if (!url) throw new Error('Brak URL obrazka z DALL-E')
-  return { url }
+  try {
+    const response = await openai.images.generate({
+      model: 'dall-e-3',
+      prompt: prompt.slice(0, 4000),
+      n: 1,
+      size,
+      quality: 'standard',
+      style: 'natural',
+    })
+    const url = response.data?.[0]?.url
+    if (!url) throw new Error('Brak URL obrazka z DALL-E')
+    return { url }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    // Translate OpenAI errors to user-friendly Polish
+    if (/billing.+limit|hard limit|insufficient.+quota/i.test(msg)) {
+      throw new Error('💳 Wyczerpano limit OpenAI (DALL-E). Zwiększ limit na https://platform.openai.com/settings/organization/limits albo użyj Nano Banana (Gemini) — jest darmowe.')
+    }
+    if (/rate limit/i.test(msg)) {
+      throw new Error('⏳ DALL-E rate limit przekroczony. Poczekaj minutę albo użyj Nano Banana.')
+    }
+    if (/content policy|safety/i.test(msg)) {
+      throw new Error('🚫 DALL-E odrzucił prompt z powodów bezpieczeństwa. Zmień opis grafiki.')
+    }
+    throw e
+  }
 }
 
-async function generateWithGemini(prompt: string, platform: string) {
+async function generateWithGemini(prompt: string, platform: string, attempt = 1): Promise<{ url: string }> {
   if (!process.env.GOOGLE_API_KEY) throw new Error('Brak klucza GOOGLE_API_KEY')
   const aspectRatio = ASPECT_MAP[platform] || '1:1'
-  // Timeout 70s (leaves 50s buffer before Vercel's 120s maxDuration)
+  const MAX_ATTEMPTS = 3
+  // Timeout 60s per attempt (3 attempts × 60s + 2 retries × 3s = max ~186s, but Vercel cuts at 120s
+  // so realistically max 2 attempts will fit in 120s window)
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 70_000)
+  const timeout = setTimeout(() => controller.abort(), 60_000)
   let response: Response
   try {
     response = await fetch(
@@ -94,16 +111,51 @@ async function generateWithGemini(prompt: string, platform: string) {
   } catch (e) {
     clearTimeout(timeout)
     if (e instanceof Error && e.name === 'AbortError') {
-      throw new Error('Gemini timeout 70s — sprobuj DALL-E')
+      // Timeout — retry once more (up to MAX_ATTEMPTS)
+      if (attempt < MAX_ATTEMPTS) {
+        console.log(`Gemini timeout (attempt ${attempt}), retrying after 3s...`)
+        await new Promise(r => setTimeout(r, 3000))
+        return generateWithGemini(prompt, platform, attempt + 1)
+      }
+      throw new Error(`Gemini przeciążony (timeout po ${MAX_ATTEMPTS} próbach). Spróbuj ponownie za chwilę.`)
     }
     throw e
   }
   clearTimeout(timeout)
+  
+  // Retry on 5xx / overloaded / quota errors
+  if (response.status === 429 || response.status === 503 || response.status === 500 || response.status === 502 || response.status === 504) {
+    if (attempt < MAX_ATTEMPTS) {
+      const waitMs = 3000 * attempt  // 3s, 6s, 9s
+      console.log(`Gemini status ${response.status} (attempt ${attempt}), retrying after ${waitMs}ms...`)
+      await new Promise(r => setTimeout(r, waitMs))
+      return generateWithGemini(prompt, platform, attempt + 1)
+    }
+  }
+  
   const data = await response.json()
-  if (!response.ok) throw new Error(data?.error?.message || 'Blad Google API')
+  if (!response.ok) {
+    const errorMsg = data?.error?.message || `HTTP ${response.status}`
+    // Final retry for transient errors caught in body
+    if (attempt < MAX_ATTEMPTS && /overloaded|UNAVAILABLE|temporarily|rate limit/i.test(errorMsg)) {
+      console.log(`Gemini error "${errorMsg}" (attempt ${attempt}), retrying after 3s...`)
+      await new Promise(r => setTimeout(r, 3000))
+      return generateWithGemini(prompt, platform, attempt + 1)
+    }
+    throw new Error(`Gemini: ${errorMsg}`)
+  }
+  
   const parts = data?.candidates?.[0]?.content?.parts || []
   const imagePart = parts.find((p: { inlineData?: { mimeType: string; data: string } }) => p.inlineData?.mimeType?.startsWith('image/'))
-  if (!imagePart?.inlineData?.data) throw new Error('Brak obrazka w odpowiedzi Google')
+  if (!imagePart?.inlineData?.data) {
+    // Sometimes Gemini returns text-only response (refused) — retry
+    if (attempt < MAX_ATTEMPTS) {
+      console.log(`Gemini returned no image (attempt ${attempt}), retrying...`)
+      await new Promise(r => setTimeout(r, 2000))
+      return generateWithGemini(prompt, platform, attempt + 1)
+    }
+    throw new Error('Gemini nie zwrócił obrazu po 3 próbach. Spróbuj zmienić prompt.')
+  }
   return { url: `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}` }
 }
 
@@ -119,38 +171,17 @@ export async function POST(req: NextRequest) {
     // If revision instructions provided, refine the prompt first
     const finalPrompt = revision ? await refinePrompt(prompt, revision) : prompt
 
-    let result: { url: string }
-    let usedProvider = provider
-    let fallbackUsed = false
-
-    if (provider === 'dalle') {
-      result = await generateWithDalle(finalPrompt, platform)
-    } else {
-      // Gemini with auto-fallback to DALL-E on timeout/error (if OPENAI key exists)
-      try {
-        result = await generateWithGemini(finalPrompt, platform)
-      } catch (geminiErr) {
-        const msg = geminiErr instanceof Error ? geminiErr.message : ''
-        const isTimeout = msg.includes('timeout') || msg.includes('AbortError') || msg.includes('aborted')
-        const isUnavailable = msg.includes('503') || msg.includes('overloaded') || msg.includes('UNAVAILABLE')
-        console.error('Gemini failed:', msg)
-        if ((isTimeout || isUnavailable) && process.env.OPENAI_API_KEY) {
-          console.log('Falling back to DALL-E 3...')
-          result = await generateWithDalle(finalPrompt, platform)
-          usedProvider = 'dalle'
-          fallbackUsed = true
-        } else {
-          throw geminiErr
-        }
-      }
-    }
+    // No auto-fallback — each provider only retries within itself.
+    // Gemini retries 503/timeout up to 3x. DALL-E throws billing/rate errors clearly.
+    const result = provider === 'dalle'
+      ? await generateWithDalle(finalPrompt, platform)
+      : await generateWithGemini(finalPrompt, platform)
 
     return NextResponse.json({
       ok: true,
       url: result.url,
-      provider: usedProvider,
+      provider,
       finalPrompt,
-      fallbackUsed,
     })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Blad generowania obrazka'
