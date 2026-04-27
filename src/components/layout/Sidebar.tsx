@@ -102,6 +102,7 @@ export default function Sidebar() {
       label: 'Specjaliści AI',
       items: [
         { href: '/meta-ads',     icon: '📣', label: 'Meta Ads',         badge: 'NEW' },
+        { href: '/performance',  icon: '⚡', label: 'Brief performance',badge: 'NEW' },
         { href: '/storyboard',   icon: '🎬', label: 'Storyboard reels', badge: 'NEW' },
         { href: '/crisis',       icon: '🚨', label: 'Crisis Response',  badge: 'NEW' },
         { href: '/tone-checker', icon: '🎯', label: 'Voice Checker',    badge: 'NEW' },
