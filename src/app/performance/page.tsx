@@ -178,8 +178,23 @@ export default function PerformancePage() {
       })
 
       if (!res.ok) {
-        const j = await res.json()
-        throw new Error(j.error || 'Błąd serwera')
+        // Bulletproof error parsing — body may be empty (500 with no body, 404 etc.)
+        const text = await res.text()
+        let errMsg = `Błąd ${res.status} ${res.statusText || ''}`.trim()
+        if (text) {
+          try {
+            const j = JSON.parse(text)
+            errMsg = j.error || errMsg
+          } catch {
+            errMsg = `${errMsg}: ${text.slice(0, 200)}`
+          }
+        }
+        if (res.status === 404) {
+          errMsg = 'Endpoint /api/performance nie znaleziony — sprawdź czy deploy się powiódł'
+        } else if (res.status === 500 && !text) {
+          errMsg = 'Błąd serwera (500). Sprawdź logi Vercel — najczęściej brak ENV var ANTHROPIC_API_KEY albo invalid model name'
+        }
+        throw new Error(errMsg)
       }
 
       const reader = res.body?.getReader()

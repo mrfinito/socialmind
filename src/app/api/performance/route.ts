@@ -17,15 +17,18 @@ interface DNA {
 
 export async function POST(req: NextRequest) {
   const limit = await checkGenerationLimit()
-  if (!limit.allowed) return new Response(JSON.stringify({ error: limit.reason }), { status: 429 })
+  if (!limit.allowed) return new Response(JSON.stringify({ error: limit.reason }), {
+    status: 429,
+    headers: { 'Content-Type': 'application/json' },
+  })
 
-  const body = await req.json() as {
+  let body: {
     objective: 'lead-gen' | 'ecommerce' | 'awareness' | 'app-installs' | 'traffic'
-    platforms: string[]  // ['meta', 'google', 'tiktok', 'linkedin']
-    budgetTotal: number  // PLN
+    platforms: string[]
+    budgetTotal: number
     budgetCurrency: string
-    duration: number  // weeks
-    targetKPI: string  // np. CPL <50zl, ROAS 4.0, CPA <80zl
+    duration: number
+    targetKPI: string
     productService: string
     targetAudience: string
     geoTargeting: string
@@ -35,6 +38,23 @@ export async function POST(req: NextRequest) {
     constraints?: string
     dna?: DNA
   }
+  try {
+    body = await req.json()
+  } catch (e) {
+    console.error('Performance: malformed request body', e)
+    return new Response(JSON.stringify({ error: 'Niepoprawny format zapytania' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error('Performance: ANTHROPIC_API_KEY missing in env')
+    return new Response(JSON.stringify({ error: 'Brak klucza ANTHROPIC_API_KEY na serwerze. Dodaj go w Vercel Environment Variables.' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
 
   const {
     objective, platforms, budgetTotal, budgetCurrency, duration, targetKPI,
@@ -43,7 +63,10 @@ export async function POST(req: NextRequest) {
   } = body
 
   if (!productService || !targetAudience || platforms.length === 0) {
-    return new Response(JSON.stringify({ error: 'Brak wymaganych pól' }), { status: 400 })
+    return new Response(JSON.stringify({ error: 'Brak wymaganych pól' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 
   const objectiveLabels: Record<string, string> = {
