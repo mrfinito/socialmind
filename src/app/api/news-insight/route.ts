@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
 
   const { article, dna, projectName } = await req.json() as {
     article: { title: string; description: string; link: string; source: string; pubDate?: string }
-    dna?: { brandName?: string; industry?: string; tone?: string; audience?: string; values?: string[] }
+    dna?: { brandName?: string; industry?: string; tone?: string; audience?: string; values?: string | string[] }
     projectName?: string
   }
 

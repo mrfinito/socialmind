@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     commentText: string
     context?: string
     platform: string
-    dna?: { brandName?: string; tone?: string; values?: string[] }
+    dna?: { brandName?: string; tone?: string; values?: string | string[] }
   }
 
   if (!commentText || commentText.trim().length < 3) {
@@ -40,7 +40,12 @@ PLATFORMA: ${platform}
 ${context ? `KONTEKST (co go wywolalo): ${context}` : ''}
 MARKA: ${brand}
 TON MARKI: ${tone}
-${dna?.values?.length ? `WARTOSCI MARKI: ${dna.values.join(', ')}` : ''}
+${(() => {
+  const v = dna?.values
+  if (!v) return ''
+  const text = Array.isArray(v) ? v.join(', ') : (typeof v === 'string' ? v.trim() : '')
+  return text ? `WARTOSCI MARKI: ${text}` : ''
+})()}
 
 Przeanalizuj komentarz i daj rekomendacje:
 

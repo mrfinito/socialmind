@@ -17,11 +17,11 @@ export async function POST(req: NextRequest) {
     dna?: {
       brandName?: string
       tone?: string
-      values?: string[]
+      values?: string | string[]
       voice?: string
       audience?: string
-      avoidWords?: string[]
-      preferredWords?: string[]
+      avoidWords?: string | string[]
+      preferredWords?: string | string[]
     }
   }
 
@@ -48,11 +48,26 @@ Odpowiadasz WYLACZNIE poprawnym JSON.`
   const prompt = `BRAND DNA:
 Marka: ${dna.brandName}
 Ton: ${dna.tone}
-${dna.values?.length ? `Wartosci: ${dna.values.join(', ')}` : ''}
+${(() => {
+  const v = dna.values
+  if (!v) return ''
+  const text = Array.isArray(v) ? v.join(', ') : (typeof v === 'string' ? v.trim() : '')
+  return text ? `Wartosci: ${text}` : ''
+})()}
 ${dna.voice ? `Glos marki: ${dna.voice}` : ''}
 ${dna.audience ? `Grupa docelowa: ${dna.audience}` : ''}
-${dna.avoidWords?.length ? `Slowa do unikania: ${dna.avoidWords.join(', ')}` : ''}
-${dna.preferredWords?.length ? `Preferowane slowa: ${dna.preferredWords.join(', ')}` : ''}
+${(() => {
+  const v = dna.avoidWords
+  if (!v) return ''
+  const text = Array.isArray(v) ? v.join(', ') : (typeof v === 'string' ? v.trim() : '')
+  return text ? `Slowa do unikania: ${text}` : ''
+})()}
+${(() => {
+  const v = dna.preferredWords
+  if (!v) return ''
+  const text = Array.isArray(v) ? v.join(', ') : (typeof v === 'string' ? v.trim() : '')
+  return text ? `Preferowane slowa: ${text}` : ''
+})()}
 
 PLATFORMA: ${platform}
 

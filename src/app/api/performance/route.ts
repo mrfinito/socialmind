@@ -9,10 +9,12 @@ export const maxDuration = 300
 interface DNA {
   brandName?: string
   industry?: string
-  audience?: string
-  values?: string[]
+  persona?: string
+  audience?: string  // legacy alias
+  values?: string | string[]  // accept both — old data may have string
   tone?: string
   usp?: string
+  keywords?: string
 }
 
 export async function POST(req: NextRequest) {
@@ -86,14 +88,25 @@ export async function POST(req: NextRequest) {
 
   const platformsText = platforms.map(p => platformLabels[p] || p).join(', ')
 
+  // Defensive DNA handling — values may be string OR array, persona OR audience
+  const dnaValuesText = (() => {
+    const v = dna?.values
+    if (!v) return ''
+    if (Array.isArray(v)) return v.length > 0 ? v.join(', ') : ''
+    if (typeof v === 'string') return v.trim()
+    return ''
+  })()
+  const dnaPersonaText = dna?.persona || dna?.audience || ''
+
   const dnaContext = dna?.brandName ? `
 KONTEKST MARKI:
 - Marka: ${dna.brandName}
 ${dna.industry ? `- Branza: ${dna.industry}` : ''}
 ${dna.usp ? `- USP: ${dna.usp}` : ''}
 ${dna.tone ? `- Ton komunikacji: ${dna.tone}` : ''}
-${dna.values?.length ? `- Wartosci: ${dna.values.join(', ')}` : ''}
-${dna.audience ? `- Persona: ${dna.audience}` : ''}
+${dnaValuesText ? `- Wartosci: ${dnaValuesText}` : ''}
+${dnaPersonaText ? `- Persona: ${dnaPersonaText}` : ''}
+${dna.keywords ? `- Słowa kluczowe: ${dna.keywords}` : ''}
 ` : ''
 
   const prompt = `Jestes Senior Performance Marketing Strategist z 10-letnim doswiadczeniem w polskich i miedzynarodowych agencjach. Twoja praca to dokladne, konkretne briefy performance z liczbami, podzialem budzetu, audiences i planem optymalizacji.
