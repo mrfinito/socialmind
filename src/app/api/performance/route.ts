@@ -16,58 +16,59 @@ interface DNA {
 }
 
 export async function POST(req: NextRequest) {
-  const limit = await checkGenerationLimit()
-  if (!limit.allowed) return new Response(JSON.stringify({ error: limit.reason }), {
-    status: 429,
-    headers: { 'Content-Type': 'application/json' },
-  })
-
-  let body: {
-    objective: 'lead-gen' | 'ecommerce' | 'awareness' | 'app-installs' | 'traffic'
-    platforms: string[]
-    budgetTotal: number
-    budgetCurrency: string
-    duration: number
-    targetKPI: string
-    productService: string
-    targetAudience: string
-    geoTargeting: string
-    landingPageUrl?: string
-    competitors?: string
-    existingAssets?: string
-    constraints?: string
-    dna?: DNA
-  }
   try {
-    body = await req.json()
-  } catch (e) {
-    console.error('Performance: malformed request body', e)
-    return new Response(JSON.stringify({ error: 'Niepoprawny format zapytania' }), {
-      status: 400,
+    const limit = await checkGenerationLimit()
+    if (!limit.allowed) return new Response(JSON.stringify({ error: limit.reason }), {
+      status: 429,
       headers: { 'Content-Type': 'application/json' },
     })
-  }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.error('Performance: ANTHROPIC_API_KEY missing in env')
-    return new Response(JSON.stringify({ error: 'Brak klucza ANTHROPIC_API_KEY na serwerze. Dodaj go w Vercel Environment Variables.' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+    let body: {
+      objective: 'lead-gen' | 'ecommerce' | 'awareness' | 'app-installs' | 'traffic'
+      platforms: string[]
+      budgetTotal: number
+      budgetCurrency: string
+      duration: number
+      targetKPI: string
+      productService: string
+      targetAudience: string
+      geoTargeting: string
+      landingPageUrl?: string
+      competitors?: string
+      existingAssets?: string
+      constraints?: string
+      dna?: DNA
+    }
+    try {
+      body = await req.json()
+    } catch (e) {
+      console.error('Performance: malformed request body', e)
+      return new Response(JSON.stringify({ error: 'Niepoprawny format zapytania' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
 
-  const {
-    objective, platforms, budgetTotal, budgetCurrency, duration, targetKPI,
-    productService, targetAudience, geoTargeting, landingPageUrl, competitors,
-    existingAssets, constraints, dna
-  } = body
+    if (!process.env.ANTHROPIC_API_KEY) {
+      console.error('Performance: ANTHROPIC_API_KEY missing in env')
+      return new Response(JSON.stringify({ error: 'Brak klucza ANTHROPIC_API_KEY na serwerze. Dodaj go w Vercel Environment Variables.' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
 
-  if (!productService || !targetAudience || platforms.length === 0) {
-    return new Response(JSON.stringify({ error: 'Brak wymaganych pól' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+    const {
+      objective, platforms, budgetTotal, budgetCurrency, duration, targetKPI,
+      productService, targetAudience, geoTargeting, landingPageUrl, competitors,
+      existingAssets, constraints, dna
+    } = body
+
+    if (!productService || !targetAudience || platforms.length === 0) {
+      return new Response(JSON.stringify({ error: 'Brak wymaganych pól' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
 
   const objectiveLabels: Record<string, string> = {
     'lead-gen': 'Lead Generation (formularze, MQL, contacts)',
@@ -348,12 +349,26 @@ KRYTYCZNE WYTYCZNE:
     }
   })
 
-  return new Response(stream, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
-      'X-Accel-Buffering': 'no',
-      'Connection': 'keep-alive',
-    },
-  })
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        'X-Accel-Buffering': 'no',
+        'Connection': 'keep-alive',
+      },
+    })
+  } catch (err) {
+    // Catch ANY runtime exception that wasn't handled above
+    const errMsg = err instanceof Error ? err.message : String(err)
+    const errStack = err instanceof Error ? err.stack : ''
+    console.error('Performance route fatal error:', errMsg)
+    console.error('Stack:', errStack)
+    return new Response(JSON.stringify({
+      error: `Performance route crashed: ${errMsg}`,
+      stack: errStack?.split('\n').slice(0, 5).join('\n'),
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
 }
