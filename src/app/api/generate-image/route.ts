@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import Anthropic from '@anthropic-ai/sdk'
+import { checkAnthropicKey } from '@/lib/aiGuards'
+import { checkGenerationLimit } from '@/lib/checkLimits'
 
 export const maxDuration = 120
 
@@ -160,6 +162,12 @@ async function generateWithGemini(prompt: string, platform: string, attempt = 1)
 }
 
 export async function POST(req: NextRequest) {
+  const _envGuard = checkAnthropicKey()
+  if (_envGuard) return _envGuard
+
+  const _limit = await checkGenerationLimit()
+  if (!_limit.allowed) return NextResponse.json({ error: _limit.reason }, { status: 429 })
+
   try {
     const { prompt, platform, provider = 'gemini', revision } = await req.json() as {
       prompt: string

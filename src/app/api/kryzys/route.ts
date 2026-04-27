@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { checkAnthropicKey } from '@/lib/aiGuards'
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 export const maxDuration = 120
 
 export async function POST(req: NextRequest) {
+  const _envGuard = checkAnthropicKey()
+  if (_envGuard) return _envGuard
+
   try {
     const { negativeComment, context, platform, dna } = await req.json()
     const prompt = `Jestes ekspertem PR i kryzysow w social media z 15-letnim doswiadczeniem na polskim rynku. Pomagasz markom reagowac profesjonalnie na hejt, krytyke i kryzysy.

@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkGenerationLimit } from '@/lib/checkLimits'
 import Anthropic from '@anthropic-ai/sdk'
+import { checkAnthropicKey } from '@/lib/aiGuards'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
+  const _envGuard = checkAnthropicKey()
+  if (_envGuard) return _envGuard
+
   try {
   // Check generation limit
   const limitCheck = await checkGenerationLimit()

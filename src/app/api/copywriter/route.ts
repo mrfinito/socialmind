@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkGenerationLimit } from '@/lib/checkLimits'
 import Anthropic from '@anthropic-ai/sdk'
+import { checkAnthropicKey } from '@/lib/aiGuards'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export async function POST(req: NextRequest) {
+  const _envGuard = checkAnthropicKey()
+  if (_envGuard) return _envGuard
+
   try {
   // Check generation limit
   const limitCheck = await checkGenerationLimit()
@@ -25,7 +29,11 @@ ${dna ? `BRAND DNA — ZAWSZE sie tym kieruj:
 Marka: ${dna.brandName || 'Marka'}
 Branza: ${dna.industry || ''}
 Persona klienta: ${dna.persona || ''}
-Wartosci: ${dna.values || ''}
+Wartosci: ${(() => {
+  const v = dna.values
+  if (!v) return ''
+  return Array.isArray(v) ? v.join(', ') : (typeof v === 'string' ? v : '')
+})()}
 USP: ${dna.usp || ''}
 Ton komunikacji: ${dna.tone || ''}
 Slowa kluczowe: ${dna.keywords || ''}

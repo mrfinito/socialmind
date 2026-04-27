@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { checkAnthropicKey } from '@/lib/aiGuards'
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
+  const _envGuard = checkAnthropicKey()
+  if (_envGuard) return _envGuard
+
   try {
     const { content, platform, dna } = await req.json()
     if (!dna) return NextResponse.json({ error: 'Brak Brand DNA - przejdź do zakładki Marka' }, { status: 400 })
@@ -16,7 +20,11 @@ BRAND DNA:
 - USP: ${dna.usp}
 - Ton komunikacji: ${dna.tone}
 - Persona: ${dna.persona || 'brak'}
-- Wartosci: ${dna.values || 'brak'}
+- Wartosci: ${(() => {
+  const v = dna.values
+  if (!v) return 'brak'
+  return Array.isArray(v) ? v.join(', ') : (typeof v === 'string' ? v : 'brak')
+})()}
 
 TEKST DO OCENY:
 """${content}"""

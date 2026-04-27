@@ -56,7 +56,7 @@ export default function InvitePage() {
 
   async function loginWithGoogle() {
     // Store invite token in localStorage so callback can pick it up
-    localStorage.setItem('pending_invite_token', token as string)
+    try { localStorage.setItem('pending_invite_token', token as string) } catch {}
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {

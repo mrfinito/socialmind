@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { checkAnthropicKey } from '@/lib/aiGuards'
+import { checkGenerationLimit } from '@/lib/checkLimits'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -17,6 +19,12 @@ interface Slide {
 }
 
 export async function POST(req: NextRequest) {
+  const _envGuard = checkAnthropicKey()
+  if (_envGuard) return _envGuard
+
+  const _limit = await checkGenerationLimit()
+  if (!_limit.allowed) return NextResponse.json({ error: _limit.reason }, { status: 429 })
+
   try {
     const { instruction, action, presentation, slideIndex } = await req.json() as {
       instruction: string

@@ -20,6 +20,8 @@ interface RtmData {
   weeklyTrends: WeeklyTrend[]
   avoidTopics: string[]
   rtmTips: string[]
+  _partial?: boolean
+  _warning?: string
 }
 
 const RELEVANCE_CFG: Record<string,{color:string;bg:string;border:string}> = {
@@ -218,6 +220,21 @@ export default function RtmPage() {
         {/* Results */}
         {data && (
           <div className="space-y-5">
+            {/* Partial recovery warning */}
+            {data._partial && (
+              <div className="flex items-start gap-3 px-4 py-3 rounded-xl"
+                style={{background:'rgba(251,191,36,0.08)',border:'1px solid rgba(251,191,36,0.30)'}}>
+                <span className="text-xl">⚠️</span>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-yellow-300">Wynik częściowy</p>
+                  <p className="text-xs text-yellow-200/80 mt-0.5">
+                    {data._warning || 'Niektóre okazje mogły zostać pominięte z powodu błędu parsowania odpowiedzi AI.'}
+                    {' '}Możesz wygenerować ponownie żeby spróbować dostać pełen wynik.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Date banner */}
             <div className="flex items-center justify-between px-4 py-3 rounded-xl"
               style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.07)'}}>

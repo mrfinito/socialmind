@@ -13,10 +13,14 @@ export default function EksportPage() {
   const [cpPrompts, setCpPrompts] = useState(false)
 
   useEffect(() => {
-    const c = localStorage.getItem('sm_content')
-    const p = localStorage.getItem('sm_platforms')
-    if (c) setContent(JSON.parse(c))
-    if (p) setPlatforms(JSON.parse(p).platforms || [])
+    try {
+      const c = localStorage.getItem('sm_content')
+      const p = localStorage.getItem('sm_platforms')
+      if (c) setContent(JSON.parse(c))
+      if (p) setPlatforms(JSON.parse(p).platforms || [])
+    } catch (e) {
+      console.error('localStorage unavailable:', e)
+    }
   }, [])
 
   const activePlatforms = PLATFORMS.filter(p => platforms.includes(p.id))
@@ -160,7 +164,7 @@ export default function EksportPage() {
           <div className="flex justify-between pt-2">
             <button className="btn-secondary" onClick={() => router.push('/generuj')}>← Wstecz</button>
             <button className="btn-primary px-8 py-3" onClick={() => {
-              localStorage.removeItem('sm_content')
+              try { localStorage.removeItem('sm_content') } catch {}
               router.push('/marka')
             }}>✦ Nowy projekt</button>
           </div>

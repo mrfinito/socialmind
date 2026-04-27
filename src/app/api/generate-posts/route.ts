@@ -3,6 +3,7 @@ import { checkGenerationLimit } from '@/lib/checkLimits'
 import Anthropic from '@anthropic-ai/sdk'
 import { robustParse } from '@/lib/parseJSON'
 import type { Platform } from '@/lib/types'
+import { checkAnthropicKey } from '@/lib/aiGuards'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -21,6 +22,9 @@ const PLATFORM_SPECS: Record<Platform, { chars: number; format: string; dims: st
 }
 
 export async function POST(req: NextRequest) {
+  const _envGuard = checkAnthropicKey()
+  if (_envGuard) return _envGuard
+
 
   try {
   // Check generation limit

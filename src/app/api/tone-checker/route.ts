@@ -2,28 +2,35 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { checkGenerationLimit } from '@/lib/checkLimits'
 import { robustParse } from '@/lib/parseJSON'
+import { checkAnthropicKey, errorResponse, safeJsonBody } from '@/lib/aiGuards'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
-  const limit = await checkGenerationLimit()
-  if (!limit.allowed) return NextResponse.json({ error: limit.reason }, { status: 429 })
+  try {
+    const keyGuard = checkAnthropicKey()
+    if (keyGuard) return keyGuard
 
-  const { text, dna, platform } = await req.json() as {
-    text: string
-    platform: string
-    dna?: {
-      brandName?: string
-      tone?: string
-      values?: string | string[]
-      voice?: string
-      audience?: string
-      avoidWords?: string | string[]
-      preferredWords?: string | string[]
-    }
-  }
+    const limit = await checkGenerationLimit()
+    if (!limit.allowed) return NextResponse.json({ error: limit.reason }, { status: 429 })
+
+    const parsed = await safeJsonBody<{
+      text: string
+      platform: string
+      dna?: {
+        brandName?: string
+        tone?: string
+        values?: string | string[]
+        voice?: string
+        audience?: string
+        avoidWords?: string | string[]
+        preferredWords?: string | string[]
+      }
+    }>(req)
+    if (parsed.response) return parsed.response
+    const { text, dna, platform } = parsed.body
 
   if (!text || text.trim().length < 10) {
     return NextResponse.json({ error: 'Wklej tekst do analizy (min 10 znakow)' }, { status: 400 })
@@ -123,7 +130,10 @@ Oceń ten tekst pod katem zgodnosci z marka. JSON:
   const raw = response.content
     .map((b: { type: string; text?: string }) => b.type === 'text' ? b.text : '').join('')
 
-  const parsed = robustParse(raw)
-  if (!parsed) return NextResponse.json({ error: 'Blad parsowania' }, { status: 500 })
-  return NextResponse.json({ ok: true, data: parsed })
+  const parsedResult = robustParse(raw)
+  if (!parsedResult) return NextResponse.json({ error: 'Blad parsowania' }, { status: 500 })
+  return NextResponse.json({ ok: true, data: parsedResult })
+  } catch (err) {
+    return errorResponse(err, 'Tone checker error')
+  }
 }
