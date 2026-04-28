@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { checkGenerationLimit } from '@/lib/checkLimits'
 import { repairAIJSON } from '@/lib/repairJSON'
 import { checkAnthropicKey, errorResponse, safeJsonBody } from '@/lib/aiGuards'
+import { tavilySearch, formatSearchForPrompt } from '@/lib/tavily'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 export const maxDuration = 300
@@ -86,6 +87,37 @@ ${dna.persona || dna.audience ? `- Persona: ${dna.persona || dna.audience}` : ''
 ${dna.keywords ? `- Słowa kluczowe: ${dna.keywords}` : ''}
 ` : ''
 
+    // ─── Research event + similar successful events ───
+    let eventResearch = ''
+    if (process.env.TAVILY_API_KEY) {
+      try {
+        const queries = []
+        // If event has a name - search for it directly
+        if (eventName) {
+          queries.push(tavilySearch(`${eventName} ${eventDate || ''} event`, {
+            maxResults: 3, searchDepth: 'basic',
+          }))
+        }
+        // Always: similar successful events for inspiration
+        queries.push(tavilySearch(`udane ${eventTypeLabel} pomysl koncept marketing`, {
+          maxResults: 4, searchDepth: 'basic',
+        }))
+        // Industry context
+        if (dna?.industry) {
+          queries.push(tavilySearch(`event marketing ${dna.industry} trends`, {
+            maxResults: 3, searchDepth: 'basic',
+          }))
+        }
+        const results = await Promise.all(queries)
+        const all = results.flatMap(r => r?.results || [])
+        if (all.length > 0) {
+          eventResearch = formatSearchForPrompt(all, { maxPerResult: 400, maxTotal: 3500 })
+        }
+      } catch (e) {
+        console.warn('Eventy: search failed:', e instanceof Error ? e.message : e)
+      }
+    }
+
     const systemPrompt = `Jesteś ekspertem od event marketingu z 15+ letnim doświadczeniem w tworzeniu zapadających w pamięć wydarzeń dla marek. Twoje pomysły łączą strategię biznesową z kreatywnym podejściem.
 
 Twoje zadanie:
@@ -112,7 +144,14 @@ ${goals ? `CELE BIZNESOWE: ${goals}` : ''}
 
 BRIEF EVENTU${sourceFile ? ` (źródło: ${sourceFile})` : ''}:
 ${brief}
+${eventResearch ? `
+═══ RESEARCH Z INTERNETU ═══
+Wykorzystaj te dane do bardziej trafnego i swieżego konceptu:
 
+${eventResearch}
+
+═════════════════════════════
+` : ''}
 Wygeneruj kreatywną propozycję event marketingową w formacie JSON:
 
 {

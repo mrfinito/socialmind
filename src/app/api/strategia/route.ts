@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { checkGenerationLimit } from '@/lib/checkLimits'
 import { repairAIJSON } from '@/lib/repairJSON'
 import { checkAnthropicKey } from '@/lib/aiGuards'
+import { tavilySearch, formatSearchForPrompt } from '@/lib/tavily'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -33,6 +34,27 @@ export async function POST(req: NextRequest) {
   const comp = String(competitors || 'nie podano')
   const bud = String(budget || 'nie podano')
 
+  // ─── Fresh market context from Tavily ───
+  let marketContext = ''
+  if (process.env.TAVILY_API_KEY) {
+    try {
+      const [trends, benchmarks] = await Promise.all([
+        tavilySearch(`trendy social media ${ind} 2026 Polska`, {
+          maxResults: 4, searchDepth: 'basic',
+        }),
+        tavilySearch(`benchmarki marketing ${ind} ${plt}`, {
+          maxResults: 3, searchDepth: 'basic',
+        }),
+      ])
+      const all = [...(trends?.results || []), ...(benchmarks?.results || [])]
+      if (all.length > 0) {
+        marketContext = formatSearchForPrompt(all, { maxPerResult: 500, maxTotal: 3500 })
+      }
+    } catch (e) {
+      console.warn('Strategia: search failed:', e instanceof Error ? e.message : e)
+    }
+  }
+
   const systemPrompt = `Jestes senior strategiem komunikacji z 15-letnim doswiadczeniem w polskim rynku reklamowym. Pracowales dla najwiekszych polskich agencji i marek. Masz glebokie zrozumienie:
 - polskiego konsumenta i jego zachowan w social media
 - specyfiki algorytmow Facebook, Instagram, LinkedIn, TikTok dla polskiego rynku
@@ -62,7 +84,14 @@ KONTEKST RYNKOWY:
 - Dostepny budzet miesieczny: ${bud}
 - Horyzont strategii: ${dur}
 - Platformy do obslugi: ${plt}
+${marketContext ? `
+═══ AKTUALNE DANE RYNKOWE Z INTERNETU ═══
+Wykorzystaj te swieze dane do strategii zamiast polegac tylko na wiedzy z trainingu.
 
+${marketContext}
+
+═══════════════════════════════════════
+` : ''}
 TWOJE ZADANIE:
 Stworz strategie ktora:
 1. Jest OPERACYJNA - konkretne akcje, nie ogólniki

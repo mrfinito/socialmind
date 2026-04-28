@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { checkGenerationLimit } from '@/lib/checkLimits'
 import { robustParse } from '@/lib/parseJSON'
 import { checkAnthropicKey } from '@/lib/aiGuards'
+import { tavilySearch, formatSearchForPrompt } from '@/lib/tavily'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
     posts?: Array<{ topic: string; platform: string; performance?: string }>
     kpi?: { reach?: string; engagement?: string; followers?: string; conversions?: string; notes?: string }
     plans?: string  // co planujemy
-    dna?: { brandName?: string; tone?: string }
+    dna?: { brandName?: string; tone?: string; industry?: string }
   }
 
   const tone = dna?.tone || 'profesjonalny'
@@ -37,6 +38,21 @@ export async function POST(req: NextRequest) {
 Newsletter sklada sie z sekcji w naturalnym przeplywie.
 
 Odpowiadasz WYLACZNIE poprawnym JSON.`
+
+  // ─── Tavily: industry news for "Co się dzieje w branży" section ───
+  let industryNews = ''
+  if (process.env.TAVILY_API_KEY && dna?.industry) {
+    try {
+      const news = await tavilySearch(`najwazniejsze newsy ${dna.industry} branza`, {
+        topic: 'news', maxResults: 5, days: 30,
+      })
+      if (news?.results?.length) {
+        industryNews = formatSearchForPrompt(news.results, { maxPerResult: 350, maxTotal: 2500 })
+      }
+    } catch (e) {
+      console.warn('Newsletter: search failed:', e instanceof Error ? e.message : e)
+    }
+  }
 
   const prompt = `STWORZ MIESIECZNY NEWSLETTER dla klienta agencji.
 
@@ -55,6 +71,14 @@ ${kpi.conversions ? `Konwersje: ${kpi.conversions}` : ''}
 ${kpi.notes ? `Notatki: ${kpi.notes}` : ''}` : ''}
 
 ${plans ? `PLANY na nastepny miesiac: ${plans}` : ''}
+${industryNews ? `
+═══ AKTUALNE NEWSY BRANZOWE (ostatnie 30 dni) ═══
+Wykorzystaj te informacje do sekcji o trendach/branzy w newsletterze. Linkuj do zrodel gdy mozliwe.
+
+${industryNews}
+
+═════════════════════════════════════════════════
+` : ''}
 
 JSON:
 {

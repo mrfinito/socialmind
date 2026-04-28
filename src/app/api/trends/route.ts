@@ -3,6 +3,7 @@ import { checkGenerationLimit } from '@/lib/checkLimits'
 import Anthropic from '@anthropic-ai/sdk'
 import { robustParse } from '@/lib/parseJSON'
 import { checkAnthropicKey } from '@/lib/aiGuards'
+import { tavilySearch, formatSearchForPrompt } from '@/lib/tavily'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -28,10 +29,45 @@ export async function POST(req: NextRequest) {
 
     const { niche, platforms } = await req.json()
 
+    // ─── Trendy module — fundamental search use case ───
+    let trendsContext = ''
+    if (process.env.TAVILY_API_KEY) {
+      try {
+        const [latest, viral, hashtags] = await Promise.all([
+          tavilySearch(`najnowsze trendy ${niche} social media`, {
+            topic: 'news', maxResults: 4, days: 14,
+          }),
+          tavilySearch(`viral content ${niche} ${platforms.join(' ')}`, {
+            maxResults: 3, searchDepth: 'basic',
+          }),
+          tavilySearch(`popularne hashtagi ${niche} 2026`, {
+            maxResults: 2, searchDepth: 'basic',
+          }),
+        ])
+        const all = [
+          ...(latest?.results || []),
+          ...(viral?.results || []),
+          ...(hashtags?.results || []),
+        ]
+        if (all.length > 0) {
+          trendsContext = formatSearchForPrompt(all, { maxPerResult: 450, maxTotal: 4000 })
+        }
+      } catch (e) {
+        console.warn('Trends: search failed:', e instanceof Error ? e.message : e)
+      }
+    }
+
     const prompt = `Jestes ekspertem od social media i content marketingu w 2026 roku.
 Przeanalizuj nissze: "${niche}" i platformy: ${platforms.join(', ')}.
+${trendsContext ? `
+═══ AKTUALNE DANE Z INTERNETU (KRYTYCZNE) ═══
+Te informacje sa najnowsze i powinny byc fundamentem Twojej analizy:
 
-Na podstawie swojej wiedzy o aktualnych trendach w mediach spolecznosciowych, odpowiedz TYLKO w formacie JSON (bez markdown):
+${trendsContext}
+
+═════════════════════════════════════════
+` : ''}
+Na podstawie ${trendsContext ? 'powyzszych aktualnych danych ORAZ ' : ''}swojej wiedzy o aktualnych trendach w mediach spolecznosciowych, odpowiedz TYLKO w formacie JSON (bez markdown):
 {
   "trends": [
     {

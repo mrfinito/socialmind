@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { checkGenerationLimit } from '@/lib/checkLimits'
 import Anthropic from '@anthropic-ai/sdk'
 import { checkAnthropicKey } from '@/lib/aiGuards'
+import { tavilySearch, formatSearchForPrompt } from '@/lib/tavily'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -29,12 +30,41 @@ export async function POST(req: NextRequest) {
     const brand = (brandName || 'Marka').replace(/['"&]/g, '')
     const comp = (competitors?.[0] || 'Konkurent').replace(/['"&]/g, '')
 
+    // ─── Search for real brand mentions in the wild ───
+    let realMentions = ''
+    if (process.env.TAVILY_API_KEY && brandName) {
+      try {
+        const [brandMentions, recentMentions] = await Promise.all([
+          tavilySearch(`${brand} opinie recenzje`, {
+            maxResults: 5, searchDepth: 'basic',
+          }),
+          tavilySearch(`${brand} ${industry || ''}`, {
+            topic: 'news', maxResults: 4, days: 30,
+          }),
+        ])
+        const all = [...(brandMentions?.results || []), ...(recentMentions?.results || [])]
+        if (all.length > 0) {
+          realMentions = formatSearchForPrompt(all, { maxPerResult: 400, maxTotal: 3500 })
+        }
+      } catch (e) {
+        console.warn('Listening: search failed:', e instanceof Error ? e.message : e)
+      }
+    }
+
     const prompt = `${masterPrompt ? masterPrompt.slice(0,100)+'\n\n' : ''}Jestes ekspertem od social media monitoringu.
 
 Wygeneruj raport social listening dla marki: ${brand}
 Branza: ${industry || 'ogolna'}
 Slowa kluczowe: ${allTerms}
 Konkurenci: ${(competitors||[]).join(', ') || 'brak'}
+${realMentions ? `
+═══ PRAWDZIWE WZMIANKI Z INTERNETU O MARCE ═══
+Te dane pochodza z aktualnych zrodel internetowych. Wykorzystaj je jako PODSTAWE raportu — sentyment, tematy, mentions powinny bazowac na tych prawdziwych danych zamiast byc wymyslane.
+
+${realMentions}
+
+═════════════════════════════════════════════
+` : ''}
 
 WAZNE: Odpowiedz TYLKO czystym JSON. Nie uzywaj apostrofow ani cudzyslowow wewnatrz stringow - zastap je slowami. Nie uzywaj polskich znakow diakrytycznych w JSON.
 

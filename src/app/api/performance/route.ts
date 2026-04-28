@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { checkGenerationLimit } from '@/lib/checkLimits'
 import { repairAIJSON } from '@/lib/repairJSON'
+import { tavilySearch, formatSearchForPrompt } from '@/lib/tavily'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 export const maxDuration = 300
@@ -109,6 +110,33 @@ ${dnaPersonaText ? `- Persona: ${dnaPersonaText}` : ''}
 ${dna.keywords ? `- Słowa kluczowe: ${dna.keywords}` : ''}
 ` : ''
 
+  // ─── Tavily: ad benchmarks + competitor landscape ───
+  let perfContext = ''
+  if (process.env.TAVILY_API_KEY) {
+    try {
+      const queries = [
+        tavilySearch(`benchmarki ${platformsText} CPC CPM CTR ${dna?.industry || ''}`, {
+          maxResults: 3, searchDepth: 'basic',
+        }),
+        tavilySearch(`${objective} kampania reklamowa best practices ${platformsText}`, {
+          maxResults: 3, searchDepth: 'basic',
+        }),
+      ]
+      if (competitors) {
+        queries.push(tavilySearch(`${competitors} reklama strategia performance`, {
+          maxResults: 2, searchDepth: 'basic',
+        }))
+      }
+      const results = await Promise.all(queries)
+      const all = results.flatMap(r => r?.results || [])
+      if (all.length > 0) {
+        perfContext = formatSearchForPrompt(all, { maxPerResult: 400, maxTotal: 3000 })
+      }
+    } catch (e) {
+      console.warn('Performance: search failed:', e instanceof Error ? e.message : e)
+    }
+  }
+
   const prompt = `Jestes Senior Performance Marketing Strategist z 10-letnim doswiadczeniem w polskich i miedzynarodowych agencjach. Twoja praca to dokladne, konkretne briefy performance z liczbami, podzialem budzetu, audiences i planem optymalizacji.
 
 KONTEKST KAMPANII:
@@ -125,6 +153,14 @@ ${competitors ? `- Konkurencja: ${competitors}` : ''}
 ${existingAssets ? `- Istniejace assety: ${existingAssets}` : ''}
 ${constraints ? `- Ograniczenia: ${constraints}` : ''}
 ${dnaContext}
+${perfContext ? `
+═══ AKTUALNE BENCHMARKI Z INTERNETU ═══
+Wykorzystaj te dane do realistycznych kosztow CPC/CPM, KPI i strategii:
+
+${perfContext}
+
+═══════════════════════════════════════
+` : ''}
 
 ZADANIE: Stworz kompletny brief performance kampanii. Kazda sekcja musi byc KONKRETNA z liczbami, kwotami, %.
 

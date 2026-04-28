@@ -3,6 +3,7 @@ import { checkGenerationLimit } from '@/lib/checkLimits'
 import Anthropic from '@anthropic-ai/sdk'
 import { robustParse } from '@/lib/parseJSON'
 import { checkAnthropicKey } from '@/lib/aiGuards'
+import { tavilySearch, formatSearchForPrompt } from '@/lib/tavily'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -33,6 +34,27 @@ export async function POST(req: NextRequest) {
     const postCount = duration === '2weeks' ? 10 : duration === 'month' ? 20 : 30
     const platformList = (platforms || ['facebook','instagram']).join(', ')
 
+    // ─── Tavily: trends + competitors landscape ───
+    let landscape = ''
+    if (process.env.TAVILY_API_KEY) {
+      try {
+        const [trends, ideas] = await Promise.all([
+          tavilySearch(`trendy kampanii reklamowej ${industry || ''} 2026`, {
+            maxResults: 4, searchDepth: 'basic',
+          }),
+          tavilySearch(`udane kampanie social media ${industry || 'marketing'}`, {
+            maxResults: 3, searchDepth: 'basic',
+          }),
+        ])
+        const all = [...(trends?.results || []), ...(ideas?.results || [])]
+        if (all.length > 0) {
+          landscape = formatSearchForPrompt(all, { maxPerResult: 450, maxTotal: 3000 })
+        }
+      } catch (e) {
+        console.warn('Kampania: search failed:', e instanceof Error ? e.message : e)
+      }
+    }
+
     const prompt = `${masterPrompt || 'Jesteś ekspertem od content marketingu i strategii social media.'}
 
 Stwórz kompletny plan kampanii social media na ${duration === '2weeks' ? '2 tygodnie' : duration === 'month' ? 'miesiąc' : '2 miesiące'}.
@@ -43,7 +65,11 @@ Brief kampanii: ${brief}
 Platformy: ${platformList}
 Cele: ${(goals || ['świadomość marki']).join(', ')}
 Ton: ${tone || 'profesjonalny'}
-
+${landscape ? `
+═══ AKTUALNE TRENDY I INSPIRACJE Z INTERNETU ═══
+${landscape}
+═══════════════════════════════════════════
+` : ''}
 Stwórz ${postCount} postów rozłożonych równomiernie. Zadbaj o mix: 40% edukacja, 30% zaangażowanie, 20% sprzedaż, 10% behind-the-scenes.
 
 Odpowiedz TYLKO w JSON (bez markdown):

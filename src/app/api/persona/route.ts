@@ -3,6 +3,7 @@ import { checkGenerationLimit } from '@/lib/checkLimits'
 import Anthropic from '@anthropic-ai/sdk'
 import { robustParse } from '@/lib/parseJSON'
 import { checkAnthropicKey } from '@/lib/aiGuards'
+import { tavilySearch, formatSearchForPrompt } from '@/lib/tavily'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -30,6 +31,27 @@ export async function POST(req: NextRequest) {
 
     const { industry, product, targetDesc, masterPrompt, brandName } = await req.json()
 
+    // ─── Research target demographics + behaviors ───
+    let demographicsContext = ''
+    if (process.env.TAVILY_API_KEY && (industry || targetDesc)) {
+      try {
+        const [demos, habits] = await Promise.all([
+          tavilySearch(`demografia konsumentow ${industry || ''} Polska`, {
+            maxResults: 3, searchDepth: 'basic',
+          }),
+          tavilySearch(`zachowania zakupowe ${product || industry || ''} ${targetDesc || ''}`, {
+            maxResults: 3, searchDepth: 'basic',
+          }),
+        ])
+        const all = [...(demos?.results || []), ...(habits?.results || [])]
+        if (all.length > 0) {
+          demographicsContext = formatSearchForPrompt(all, { maxPerResult: 400, maxTotal: 2500 })
+        }
+      } catch (e) {
+        console.warn('Persona: search failed:', e instanceof Error ? e.message : e)
+      }
+    }
+
     const prompt = `Jesteś ekspertem od strategii marketingowej i psychologii konsumenta.
 
 Stwórz 3 szczegółowe persony klientów dla marki:
@@ -38,7 +60,14 @@ Branża: ${industry || 'ogólna'}
 Produkt/usługa: ${product || 'produkt'}
 Opis grupy docelowej: ${targetDesc || 'ogólna grupa docelowa'}
 ${masterPrompt ? `Kontekst marki: ${masterPrompt.slice(0, 300)}` : ''}
+${demographicsContext ? `
+═══ DANE Z INTERNETU ═══
+Aktualne dane o demografii i zachowaniach konsumentów w branży:
 
+${demographicsContext}
+
+═══════════════════════
+` : ''}
 Każda persona powinna być BARDZO konkretna i żywa — jak prawdziwa osoba.
 
 Odpowiedz TYLKO w JSON (bez markdown):
