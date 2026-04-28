@@ -37,7 +37,7 @@ ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_news            BOOLEA
 ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_projekty        BOOLEAN DEFAULT true;
 ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_wiadomosci      BOOLEAN DEFAULT true;
 
--- Specjaliści AI (7 nowych)
+-- Specjaliści AI (8 nowych - dodano can_eventy w v2.1)
 ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_meta_ads        BOOLEAN DEFAULT true;
 ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_performance     BOOLEAN DEFAULT true;
 ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_storyboard      BOOLEAN DEFAULT true;
@@ -45,6 +45,7 @@ ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_crisis          BOOLEA
 ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_voice_checker   BOOLEAN DEFAULT true;
 ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_newsletter      BOOLEAN DEFAULT true;
 ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_caption_ab      BOOLEAN DEFAULT true;
+ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_eventy          BOOLEAN DEFAULT true;
 ```
 
 **Default = `true`** dla wszystkich. Istniejący użytkownicy zachowują pełen dostęp — admin może wyłączać moduły indywidualnie.

@@ -46,6 +46,7 @@ export interface Permissions {
   can_voice_checker: boolean
   can_newsletter: boolean
   can_caption_ab: boolean
+  can_eventy: boolean
   // Limits
   max_projects: number
   max_posts_per_month: number
@@ -66,7 +67,7 @@ const DEFAULT: Permissions = {
   can_ab_testy: true,
   can_meta_ads: true, can_performance: true, can_storyboard: true,
   can_crisis: true, can_voice_checker: true, can_newsletter: true,
-  can_caption_ab: true,
+  can_caption_ab: true, can_eventy: true,
   max_projects: 999, max_posts_per_month: 9999,
 }
 
@@ -141,6 +142,7 @@ export function usePermissions() {
             can_voice_checker: p.can_voice_checker ?? true,
             can_newsletter: p.can_newsletter ?? true,
             can_caption_ab: p.can_caption_ab ?? true,
+            can_eventy: p.can_eventy ?? true,
             max_projects: p.max_projects ?? 3,
             max_posts_per_month: p.max_posts_per_month ?? 50,
           })

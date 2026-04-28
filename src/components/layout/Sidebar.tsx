@@ -108,6 +108,7 @@ export default function Sidebar() {
         perms.can_voice_checker && { href: '/tone-checker', icon: '🎯', label: 'Voice Checker',    badge: 'NEW' },
         perms.can_newsletter    && { href: '/newsletter',   icon: '📧', label: 'Newsletter',       badge: 'NEW' },
         perms.can_caption_ab    && { href: '/caption-ab',   icon: '🧪', label: 'Caption A/B',      badge: 'NEW' },
+        perms.can_eventy        && { href: '/eventy',       icon: '🎪', label: 'Eventy',           badge: 'NEW' },
       ].filter(Boolean)
     },
   ]

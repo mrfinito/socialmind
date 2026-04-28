@@ -47,6 +47,7 @@ interface Permissions {
   can_voice_checker: boolean
   can_newsletter: boolean
   can_caption_ab: boolean
+  can_eventy: boolean
   // Limits
   max_projects: number
   max_posts_per_month: number
@@ -144,6 +145,7 @@ const MODULE_GROUPS: ModuleGroup[] = [
       { key:'can_voice_checker', label:'Voice Checker',       icon:'🎯' },
       { key:'can_newsletter',    label:'Newsletter',          icon:'📧' },
       { key:'can_caption_ab',    label:'Caption A/B',         icon:'🧪' },
+      { key:'can_eventy',        label:'Eventy',              icon:'🎪' },
     ],
   },
 ]
@@ -175,6 +177,7 @@ const PRO_KEYS: Array<keyof Permissions> = [
   'can_copywriter', 'can_content_score', 'can_kampania', 'can_persona',
   'can_competitor', 'can_repurposing', 'can_ab_testy', 'can_wideo',
   'can_meta_ads', 'can_storyboard', 'can_voice_checker', 'can_newsletter', 'can_caption_ab',
+  'can_eventy',
 ]
 
 // Agency: wszystko
