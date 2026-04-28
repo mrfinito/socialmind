@@ -27,11 +27,11 @@ export async function POST(req: NextRequest) {
     }, { status: 429 })
   }
 
-    const { niche, platforms } = await req.json()
+    const { niche, platforms, useSearch} = await req.json()
 
     // ─── Trendy module — fundamental search use case ───
     let trendsContext = ''
-    if (process.env.TAVILY_API_KEY) {
+    if (useSearch !== false && process.env.TAVILY_API_KEY) {
       try {
         const [latest, viral, hashtags] = await Promise.all([
           tavilySearch(`najnowsze trendy ${niche} social media`, {

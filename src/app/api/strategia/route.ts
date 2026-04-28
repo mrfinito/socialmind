@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  const { dna, competitors, targetAudience, goals, budget, duration, platforms } = await req.json()
+  const { dna, competitors, targetAudience, goals, budget, duration, platforms, useSearch} = await req.json()
   const brand = String(dna?.brandName || 'Marka')
   const ind = String(dna?.industry || 'ogolna')
   const tone = String(dna?.tone || 'profesjonalny')
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
 
   // ─── Fresh market context from Tavily ───
   let marketContext = ''
-  if (process.env.TAVILY_API_KEY) {
+  if (useSearch !== false && process.env.TAVILY_API_KEY) {
     try {
       const [trends, benchmarks] = await Promise.all([
         tavilySearch(`trendy social media ${ind} 2026 Polska`, {

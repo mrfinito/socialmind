@@ -4,6 +4,7 @@ import AppShell from '@/components/layout/AppShell'
 import { useStore } from '@/lib/store'
 import { historyLoad, historySave } from '@/lib/history'
 import type { HistoryEntry } from '@/lib/history'
+import { SearchToggle, useModuleSearchPref } from '@/components/SearchToggle'
 
 interface PerformanceBrief {
   executiveSummary?: {
@@ -145,6 +146,7 @@ export default function PerformancePage() {
   const [resultReady, setResultReady] = useState(false)
   const resultRef = useRef<PerformanceBrief | null>(null)
   const [history, setHistory] = useState<HistoryEntry<PerformanceBrief>[]>([])
+  const [useSearch, setUseSearch] = useModuleSearchPref()
 
   useEffect(() => {
     setHistory(historyLoad<PerformanceBrief>('performance', projectId))
@@ -173,7 +175,7 @@ export default function PerformancePage() {
         body: JSON.stringify({
           objective, platforms, budgetTotal, budgetCurrency, duration, targetKPI,
           productService, targetAudience, geoTargeting, landingPageUrl, competitors,
-          existingAssets, constraints, dna,
+          existingAssets, constraints, dna, useSearch,
         }),
       })
 
@@ -450,6 +452,7 @@ export default function PerformancePage() {
               </div>
             )}
 
+            <SearchToggle enabled={useSearch} onChange={setUseSearch} disabled={loading} />
             <button onClick={generate} disabled={loading || !productService || !targetAudience || platforms.length === 0}
               className="btn-primary w-full py-4 text-base disabled:opacity-30">
               {loading ? '⚡ Tworzę brief...' : '⚡ Wygeneruj brief performance'}

@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     }, { status: 429 })
   }
 
-    const { brandName, keywords, competitors, industry, masterPrompt } = await req.json()
+    const { brandName, keywords, competitors, industry, masterPrompt, useSearch} = await req.json()
 
     const allTerms = [brandName, ...(keywords||[]), ...(competitors||[])].filter(Boolean).join(', ')
     const brand = (brandName || 'Marka').replace(/['"&]/g, '')
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
     // ─── Search for real brand mentions in the wild ───
     let realMentions = ''
-    if (process.env.TAVILY_API_KEY && brandName) {
+    if (useSearch !== false && process.env.TAVILY_API_KEY && brandName) {
       try {
         const [brandMentions, recentMentions] = await Promise.all([
           tavilySearch(`${brand} opinie recenzje`, {

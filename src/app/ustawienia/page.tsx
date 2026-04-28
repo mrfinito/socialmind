@@ -101,6 +101,9 @@ export default function UstawieniaPage() {
           {/* Theme switcher */}
           <ThemeSection />
 
+          {/* Search preference */}
+          <SearchPrefSection />
+
           {/* Personalization (white-label branding) */}
           <div className="card">
             <div className="flex items-start gap-3 mb-4">
@@ -436,6 +439,77 @@ function ThemeSection() {
       <p className="text-[10px] text-gray-600 mt-3">
         💡 Możesz też przełączać motyw szybkim przyciskiem ☀️/🌙 na dole sidebara.
       </p>
+    </div>
+  )
+}
+
+// === Search preference section ===
+function SearchPrefSection() {
+  const [enabled, setEnabled] = useState(true)
+
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem('sm:use-search')
+      setEnabled(v === null ? true : v === 'true')
+    } catch {}
+  }, [])
+
+  function toggle() {
+    const next = !enabled
+    setEnabled(next)
+    try {
+      localStorage.setItem('sm:use-search', String(next))
+      window.dispatchEvent(new CustomEvent('sm-search-pref-changed', { detail: next }))
+    } catch {}
+  }
+
+  return (
+    <div className="card">
+      <div className="flex items-start gap-3 mb-4">
+        <span className="text-2xl">🌐</span>
+        <div className="flex-1">
+          <h2 className="text-base font-semibold text-white">Wyszukiwarka internetowa w AI</h2>
+          <p className="text-gray-500 text-xs mt-0.5">
+            AI może pobierać świeże dane z internetu (Tavily) — używane w Strategii, RTM, Trendach,
+            Konkurencji, Listening, Personie, Eventach, Performance Brief i Newsletterze.
+          </p>
+        </div>
+      </div>
+
+      <button
+        onClick={toggle}
+        className="w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all"
+        style={{
+          background: enabled ? 'rgba(99,102,241,0.1)' : 'rgba(255,255,255,0.02)',
+          border: `1px solid ${enabled ? 'rgba(99,102,241,0.25)' : 'rgba(255,255,255,0.06)'}`,
+        }}>
+        <div className="flex items-center gap-3 text-left">
+          <span className="text-2xl">{enabled ? '✅' : '⏸️'}</span>
+          <div>
+            <p className={`text-sm font-medium ${enabled ? 'text-white' : 'text-gray-400'}`}>
+              {enabled ? 'Wyszukiwarka włączona' : 'Wyszukiwarka wyłączona'}
+            </p>
+            <p className="text-[11px] text-gray-600 mt-0.5">
+              {enabled
+                ? 'AI używa świeżych danych z internetu — generacje są bardziej trafne, zużywa kredyty Tavily'
+                : 'AI generuje wyłącznie z wiedzy z trainingu — szybciej, taniej, bez świeżych danych'}
+            </p>
+          </div>
+        </div>
+        <div className={`w-11 h-6 rounded-full transition-all relative shrink-0 ${enabled ? 'bg-indigo-500' : 'bg-gray-800'}`}>
+          <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${enabled ? 'left-[22px]' : 'left-0.5'}`}/>
+        </div>
+      </button>
+
+      <div className="mt-3 px-3 py-2 rounded-lg"
+        style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)' }}>
+        <p className="text-[11px] text-gray-500">
+          💡 <span className="text-gray-400">Wskazówka:</span> wyłącz gdy testujesz aplikację lub gdy zbliżasz się do limitu Tavily (1000 zapytań/mies. free tier). Każda generacja w wymienionych modułach zużywa 2-3 zapytania.
+        </p>
+        <p className="text-[11px] text-gray-500 mt-1">
+          Możesz też wyłączyć dla pojedynczej generacji — w każdym z tych modułów jest osobny przełącznik nad przyciskiem &quot;Generuj&quot;.
+        </p>
+      </div>
     </div>
   )
 }

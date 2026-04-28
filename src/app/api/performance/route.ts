@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
       existingAssets?: string
       constraints?: string
       dna?: DNA
+      useSearch?: boolean
     }
     try {
       body = await req.json()
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest) {
     const {
       objective, platforms, budgetTotal, budgetCurrency, duration, targetKPI,
       productService, targetAudience, geoTargeting, landingPageUrl, competitors,
-      existingAssets, constraints, dna
+      existingAssets, constraints, dna, useSearch
     } = body
 
     if (!productService || !targetAudience || platforms.length === 0) {
@@ -112,7 +113,7 @@ ${dna.keywords ? `- Słowa kluczowe: ${dna.keywords}` : ''}
 
   // ─── Tavily: ad benchmarks + competitor landscape ───
   let perfContext = ''
-  if (process.env.TAVILY_API_KEY) {
+  if (useSearch !== false && process.env.TAVILY_API_KEY) {
     try {
       const queries = [
         tavilySearch(`benchmarki ${platformsText} CPC CPM CTR ${dna?.industry || ''}`, {

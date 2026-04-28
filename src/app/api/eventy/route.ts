@@ -55,10 +55,11 @@ export async function POST(req: NextRequest) {
       brief: string  // text content (either typed or extracted from file)
       sourceFile?: string  // optional: name of original file
       dna?: DNA
+      useSearch?: boolean
     }>(req)
     if (parsed.response) return parsed.response
 
-    const { eventType, eventName, eventDate, eventLocation, audience, goals, brief, sourceFile, dna } = parsed.body
+    const { eventType, eventName, eventDate, eventLocation, audience, goals, brief, sourceFile, dna, useSearch } = parsed.body
 
     if (!brief || brief.trim().length < 20) {
       return new Response(JSON.stringify({ error: 'Brief musi mieć co najmniej 20 znaków' }), {
@@ -89,7 +90,7 @@ ${dna.keywords ? `- Słowa kluczowe: ${dna.keywords}` : ''}
 
     // ─── Research event + similar successful events ───
     let eventResearch = ''
-    if (process.env.TAVILY_API_KEY) {
+    if (useSearch !== false && process.env.TAVILY_API_KEY) {
       try {
         const queries = []
         // If event has a name - search for it directly

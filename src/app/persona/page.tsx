@@ -4,6 +4,7 @@ import AppShell from '@/components/layout/AppShell'
 import HistoryDrawer from '@/components/HistoryDrawer'
 import { historyLoad, historySave } from '@/lib/history'
 import type { HistoryEntry } from '@/lib/history'
+import { SearchToggle, useModuleSearchPref } from '@/components/SearchToggle'
 import { useStore } from '@/lib/store'
 
 interface Persona {
@@ -52,6 +53,7 @@ export default function PersonaPage() {
   const [activePersona, setActivePersona] = useState(0)
   const [activeSection, setActiveSection] = useState<'profile'|'digital'|'communication'|'content'>('profile')
   const [copied, setCopied] = useState<string|null>(null)
+  const [useSearch, setUseSearch] = useModuleSearchPref()
 
   async function generate() {
     if (!product.trim() && !targetDesc.trim()) { setError('Opisz produkt lub grupę docelową'); return }
@@ -59,7 +61,7 @@ export default function PersonaPage() {
     try {
       const res = await fetch('/api/persona', {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ industry: dna?.industry, product, targetDesc, masterPrompt: dna?.masterPrompt, brandName: dna?.brandName })
+        body: JSON.stringify({ industry: dna?.industry, product, targetDesc, masterPrompt: dna?.masterPrompt, brandName: dna?.brandName, useSearch })
       })
       const j = await res.json()
       if (!res.ok) throw new Error(j.error)
@@ -145,6 +147,7 @@ export default function PersonaPage() {
               </div>
             )}
             {error && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">{error}</p>}
+            <SearchToggle enabled={useSearch} onChange={setUseSearch} disabled={loading} />
             <button className="btn-primary flex items-center gap-2 px-8 py-3" onClick={generate} disabled={loading}>
               {loading ? <><Dots /> Buduję persony...</> : '👤 Generuj 3 persony'}
             </button>

@@ -29,11 +29,11 @@ export async function POST(req: NextRequest) {
     }, { status: 429 })
   }
 
-    const { industry, product, targetDesc, masterPrompt, brandName } = await req.json()
+    const { industry, product, targetDesc, masterPrompt, brandName, useSearch} = await req.json()
 
     // ─── Research target demographics + behaviors ───
     let demographicsContext = ''
-    if (process.env.TAVILY_API_KEY && (industry || targetDesc)) {
+    if (useSearch !== false && process.env.TAVILY_API_KEY && (industry || targetDesc)) {
       try {
         const [demos, habits] = await Promise.all([
           tavilySearch(`demografia konsumentow ${industry || ''} Polska`, {

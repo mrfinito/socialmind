@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     }, { status: 429 })
   }
 
-    const { competitorUrl, competitorName, ourDNA, platforms } = await req.json()
+    const { competitorUrl, competitorName, ourDNA, platforms, useSearch} = await req.json()
 
     const name = (competitorName || competitorUrl || 'konkurent').replace(/['"]/g, '')
     const ourBrand = ourDNA?.brandName || 'nasza marka'
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     // ─── NEW: Tavily search for real competitor data ───
     let searchContext = ''
     let searchSources: Array<{title: string; url: string}> = []
-    if (process.env.TAVILY_API_KEY && competitorName) {
+    if (useSearch !== false && process.env.TAVILY_API_KEY && competitorName) {
       try {
         // Two parallel searches: general info + recent activity
         const [general, recent] = await Promise.all([

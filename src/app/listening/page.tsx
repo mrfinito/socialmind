@@ -6,6 +6,7 @@ import { historyLoad, historySave } from '@/lib/history'
 import type { HistoryEntry } from '@/lib/history'
 import { useStore } from '@/lib/store'
 import PlatformIcon from '@/components/PlatformIcon'
+import { SearchToggle, useModuleSearchPref } from '@/components/SearchToggle'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface Summary { totalMentions:number; sentimentScore:number; sentimentLabel:string; trend:string; trendPercent:number; alertsCount:number; period:string }
@@ -295,6 +296,7 @@ export default function ListeningPage() {
   const [selectedMention, setSelectedMention] = useState<Mention|null>(null)
   const [copiedResponse, setCopiedResponse] = useState<string|null>(null)
   const [mentionUrls, setMentionUrls] = useState<Record<string,string>>({})
+  const [useSearch, setUseSearch] = useModuleSearchPref()
 
   async function scan() {
     if (!brandName.trim()) { setError('Wpisz nazwę marki'); return }
@@ -304,7 +306,7 @@ export default function ListeningPage() {
     try {
       const res = await fetch('/api/listening', {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ brandName, keywords, competitors, industry: dna?.industry, masterPrompt: dna?.masterPrompt })
+        body: JSON.stringify({ brandName, keywords, competitors, industry: dna?.industry, masterPrompt: dna?.masterPrompt, useSearch })
       })
       const j = await res.json()
       if (!res.ok) throw new Error(j.error)
@@ -396,6 +398,7 @@ export default function ListeningPage() {
               ⚠️ Social Listening działa na symulacji AI opartej na wiedzy o rynku i branży. Nie jest to live scraping platform — zastępuje drogie narzędzia takie jak Brandwatch w fazie planowania strategii.
             </div>
             {error && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">{error}</p>}
+            <SearchToggle enabled={useSearch} onChange={setUseSearch} disabled={loading} />
             <button className="btn-primary flex items-center gap-2 px-8 py-3" onClick={scan} disabled={loading}>
               {loading ? <><Dots /> Skanuję wzmianki...</> : '📡 Uruchom Social Listening'}
             </button>

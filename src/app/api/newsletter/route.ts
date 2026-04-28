@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   const limit = await checkGenerationLimit()
   if (!limit.allowed) return NextResponse.json({ error: limit.reason }, { status: 429 })
 
-  const { period, projectName, posts, kpi, plans, dna, agencyName } = await req.json() as {
+  const { period, projectName, posts, kpi, plans, dna, agencyName, useSearch} = await req.json() as {
     period: string  // "Kwiecień 2026"
     projectName: string
     agencyName?: string
@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
     kpi?: { reach?: string; engagement?: string; followers?: string; conversions?: string; notes?: string }
     plans?: string  // co planujemy
     dna?: { brandName?: string; tone?: string; industry?: string }
+    useSearch?: boolean
   }
 
   const tone = dna?.tone || 'profesjonalny'
@@ -41,7 +42,7 @@ Odpowiadasz WYLACZNIE poprawnym JSON.`
 
   // ─── Tavily: industry news for "Co się dzieje w branży" section ───
   let industryNews = ''
-  if (process.env.TAVILY_API_KEY && dna?.industry) {
+  if (useSearch !== false && process.env.TAVILY_API_KEY && dna?.industry) {
     try {
       const news = await tavilySearch(`najwazniejsze newsy ${dna.industry} branza`, {
         topic: 'news', maxResults: 5, days: 30,

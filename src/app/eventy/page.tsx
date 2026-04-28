@@ -2,6 +2,7 @@
 import { useState, useRef } from 'react'
 import AppShell from '@/components/layout/AppShell'
 import { useStore } from '@/lib/store'
+import { SearchToggle, useModuleSearchPref } from '@/components/SearchToggle'
 
 interface Visual {
   title: string
@@ -65,6 +66,7 @@ export default function EventyPage() {
   const [error, setError] = useState('')
   const [streamProgress, setStreamProgress] = useState('')
   const [data, setData] = useState<EventData | null>(null)
+  const [useSearch, setUseSearch] = useModuleSearchPref()
 
   async function handleFile(file: File) {
     setFileLoading(true)
@@ -118,6 +120,7 @@ export default function EventyPage() {
           audience, goals, brief: briefText,
           sourceFile: fileName || undefined,
           dna: dna || undefined,
+          useSearch,
         }),
       })
 
@@ -379,6 +382,7 @@ export default function EventyPage() {
               </div>
             )}
 
+            <SearchToggle enabled={useSearch} onChange={setUseSearch} disabled={loading} />
             <button
               onClick={generate}
               disabled={loading || briefText.trim().length < 20}

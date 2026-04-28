@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import AppShell from '@/components/layout/AppShell'
 import PlatformIcon from '@/components/PlatformIcon'
 import { useStore } from '@/lib/store'
+import { SearchToggle, useModuleSearchPref } from '@/components/SearchToggle'
 
 // ─── Types ────────────────────────────────────────────────────
 interface SocialProfileInput { platform: string; url: string }
@@ -80,6 +81,7 @@ export default function KonkurencjaPage() {
   const [currentName, setCurrentName] = useState('')
   const [searchUsed, setSearchUsed] = useState(false)
   const [searchSources, setSearchSources] = useState<Array<{title:string;url:string}>>([])
+  const [useSearch, setUseSearch] = useModuleSearchPref()
 
   // Saved competitors
   const [saved, setSaved] = useState<SavedCompetitor[]>([])
@@ -112,7 +114,8 @@ export default function KonkurencjaPage() {
           competitorName,
           socialProfiles: socialInputs.filter(s => s.url),
           ourDNA: dna,
-          platforms: selectedPlatforms || []
+          platforms: selectedPlatforms || [],
+          useSearch,
         })
       })
       const j = await res.json()
@@ -281,6 +284,7 @@ export default function KonkurencjaPage() {
                 </div>
               )}
               {error && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">{error}</p>}
+              <SearchToggle enabled={useSearch} onChange={setUseSearch} disabled={loading} />
               <div className="flex gap-2">
                 <button className="btn-primary flex items-center gap-2 px-6 py-3 flex-1" onClick={analyze} disabled={loading}>
                   {loading ? <><Dots /> Analizuję...</> : '🔍 Analizuj konkurenta'}

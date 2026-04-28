@@ -8,6 +8,7 @@ import { useStore } from '@/lib/store'
 import { PLATFORMS } from '@/lib/types'
 import type { Platform } from '@/lib/types'
 import PlatformIcon from '@/components/PlatformIcon'
+import { SearchToggle, useModuleSearchPref } from '@/components/SearchToggle'
 
 interface TrendItem { topic: string; description: string; momentum: string; platforms: string[]; postIdea: string }
 interface HashtagItem { tag: string; volume: string; competition: string; recommendation: string }
@@ -32,12 +33,13 @@ export default function TrendyPage() {
   const [data, setData] = useState<TrendData|null>(null)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState<number|null>(null)
+  const [useSearch, setUseSearch] = useModuleSearchPref()
 
   async function research() {
     if (!niche.trim()) { setError('Wpisz niszę'); return }
     setLoading(true); setError('')
     try {
-      const res = await fetch('/api/trends', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({niche, platforms:selPlat}) })
+      const res = await fetch('/api/trends', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({niche, platforms:selPlat, useSearch}) })
       const j = await res.json()
       if (!res.ok) throw new Error(j.error)
       setData(j.data)
@@ -83,6 +85,7 @@ export default function TrendyPage() {
             </div>
           </div>
           {error && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">{error}</p>}
+          <SearchToggle enabled={useSearch} onChange={setUseSearch} disabled={loading} />
           <button className="btn-primary flex items-center gap-2 px-6 py-3" onClick={research} disabled={loading}>
             {loading ? <><Dots /> Analizuję trendy...</> : '📡 Zbadaj trendy'}
           </button>

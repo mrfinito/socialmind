@@ -29,14 +29,14 @@ export async function POST(req: NextRequest) {
     }, { status: 429 })
   }
 
-    const { brief, platforms, duration, goals, masterPrompt, brandName, industry, tone } = await req.json()
+    const { brief, platforms, duration, goals, masterPrompt, brandName, industry, tone, useSearch} = await req.json()
 
     const postCount = duration === '2weeks' ? 10 : duration === 'month' ? 20 : 30
     const platformList = (platforms || ['facebook','instagram']).join(', ')
 
     // ─── Tavily: trends + competitors landscape ───
     let landscape = ''
-    if (process.env.TAVILY_API_KEY) {
+    if (useSearch !== false && process.env.TAVILY_API_KEY) {
       try {
         const [trends, ideas] = await Promise.all([
           tavilySearch(`trendy kampanii reklamowej ${industry || ''} 2026`, {

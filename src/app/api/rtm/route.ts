@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  const { dna, industry, platforms, country } = await req.json()
+  const { dna, industry, platforms, country, useSearch} = await req.json()
   const today = new Date().toLocaleDateString('pl', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   })
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
 
   // ─── NEW: Fetch fresh news from Tavily for richer RTM context ───
   let freshNewsContext = ''
-  if (process.env.TAVILY_API_KEY) {
+  if (useSearch !== false && process.env.TAVILY_API_KEY) {
     try {
       const [news, trends] = await Promise.all([
         tavilySearch(`najwazniejsze wydarzenia ${ctry} dzisiaj`, {

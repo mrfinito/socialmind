@@ -7,6 +7,7 @@ import type { Platform } from '@/lib/types'
 import PlatformIcon from '@/components/PlatformIcon'
 import { historyLoad, historySave } from '@/lib/history'
 import type { HistoryEntry } from '@/lib/history'
+import { SearchToggle, useModuleSearchPref } from '@/components/SearchToggle'
 
 const GOALS = ['Świadomość marki','Sprzedaż / leady','Zaangażowanie społeczności','Ruch na stronę','Pozycjonowanie jako ekspert','Budowanie lojalności']
 const BUDGETS = ['Do 1000 zł/mies.','1000-3000 zł/mies.','3000-10000 zł/mies.','Powyżej 10000 zł/mies.','Tylko organicznie']
@@ -44,6 +45,7 @@ export default function StrategiaPage() {
   const [activeTab, setActiveTab] = useState<'overview'|'content'|'platforms'|'calendar'|'action'>('overview')
   const [history, setHistory] = useState<HistoryEntry<StrategyData>[]>([])
   const [copied, setCopied] = useState(false)
+  const [useSearch, setUseSearch] = useModuleSearchPref()
 
   useEffect(() => {
     const h = historyLoad<StrategyData>('strategia', projectId)
@@ -66,7 +68,7 @@ export default function StrategiaPage() {
     try {
       const res = await fetch('/api/strategia', {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ dna, competitors, targetAudience, goals, budget, duration, platforms })
+        body: JSON.stringify({ dna, competitors, targetAudience, goals, budget, duration, platforms, useSearch })
       })
 
       if (!res.ok) {
@@ -288,6 +290,7 @@ export default function StrategiaPage() {
               </div>
             )}
             {error && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">{error}</p>}
+            <SearchToggle enabled={useSearch} onChange={setUseSearch} disabled={loading} />
             <button className="btn-primary flex items-center gap-2 px-8 py-3 text-base" onClick={generate} disabled={loading}>
               {loading ? (
                 <span className="flex items-center gap-2">

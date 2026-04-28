@@ -4,6 +4,7 @@ import AppShell from '@/components/layout/AppShell'
 import { useStore } from '@/lib/store'
 import { historyLoad, historySave } from '@/lib/history'
 import type { HistoryEntry } from '@/lib/history'
+import { SearchToggle, useModuleSearchPref } from '@/components/SearchToggle'
 
 interface Section {
   id: string
@@ -44,6 +45,7 @@ export default function NewsletterPage() {
   const [data, setData] = useState<NewsletterData | null>(null)
   const [history, setHistory] = useState<HistoryEntry<NewsletterData>[]>([])
   const [copyHtml, setCopyHtml] = useState(false)
+  const [useSearch, setUseSearch] = useModuleSearchPref()
 
   useEffect(() => {
     setHistory(historyLoad<NewsletterData>('newsletter', projectId))
@@ -72,6 +74,7 @@ export default function NewsletterPage() {
           kpi: { reach, engagement, followers, conversions, notes: kpiNotes },
           plans,
           dna,
+          useSearch,
         }),
       })
       const j = await res.json()
@@ -218,6 +221,7 @@ li { font-size: 14px; color: #4b5563; margin: 4px 0; }
 
             {error && <div className="card bg-red-500/5 border-red-500/20 text-red-300 text-sm">{error}</div>}
 
+            <SearchToggle enabled={useSearch} onChange={setUseSearch} disabled={loading} />
             <button onClick={generate} disabled={loading}
               className="btn-primary w-full py-4 text-base disabled:opacity-30">
               {loading ? '⏳ Tworzę newsletter...' : '✨ Wygeneruj newsletter'}

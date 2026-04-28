@@ -8,6 +8,7 @@ import PlatformIcon from '@/components/PlatformIcon'
 import ImageGenerator from '@/components/ImageGenerator'
 import { historyLoad, historySave } from '@/lib/history'
 import type { HistoryEntry } from '@/lib/history'
+import { SearchToggle, useModuleSearchPref } from '@/components/SearchToggle'
 
 interface RtmPost { platform: string; angle: string; text: string; hook: string; hashtags: string[]; emoji: boolean; imageIdea: string }
 interface RtmOpportunity { id:string; title:string; category:string; relevance:string; why:string; risk:string; urgency:string; posts: RtmPost[] }
@@ -52,6 +53,7 @@ export default function RtmPage() {
   const [selectedPost, setSelectedPost] = useState<RtmPost|null>(null)
   const [history, setHistory] = useState<HistoryEntry<RtmData>[]>([])
   const projectId = activeProject?.id || 'default'
+  const [useSearch, setUseSearch] = useModuleSearchPref()
 
   useEffect(() => {
     const h = historyLoad<RtmData>('rtm', projectId)
@@ -106,7 +108,7 @@ export default function RtmPage() {
     try {
       const res = await fetch('/api/rtm', {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ dna, industry: industry || dna?.industry, platforms, country: 'Polska' })
+        body: JSON.stringify({ dna, industry: industry || dna?.industry, platforms, country: 'Polska', useSearch })
       })
 
       if (!res.ok) {
@@ -211,6 +213,7 @@ export default function RtmPage() {
               </div>
             )}
             {error && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">{error}</p>}
+            <SearchToggle enabled={useSearch} onChange={setUseSearch} disabled={loading} />
             <button className="btn-primary flex items-center gap-2 px-8 py-3 text-base" onClick={scan} disabled={loading}>
               {loading ? <><Dots/> Skanuję trendy i newsy...</> : '⚡ Skanuj dzisiejsze trendy'}
             </button>

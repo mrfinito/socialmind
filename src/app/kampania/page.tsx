@@ -8,6 +8,7 @@ import { useStore } from '@/lib/store'
 import { PLATFORMS } from '@/lib/types'
 import type { Platform } from '@/lib/types'
 import PlatformIcon from '@/components/PlatformIcon'
+import { SearchToggle, useModuleSearchPref } from '@/components/SearchToggle'
 
 interface Post { day:number; week:number; platform:string; type:string; topic:string; hook:string; text:string; imagePrompt:string; bestTime:string; goal:string }
 interface VideoScript { week:number; platform:string; topic:string; hook:string; outline:string[]; duration:string; music:string }
@@ -53,6 +54,7 @@ export default function KampaniaPage() {
   const [activeWeek, setActiveWeek] = useState(1)
   const [activeTab, setActiveTab] = useState<'calendar'|'posts'|'videos'|'strategy'>('calendar')
   const [copiedPost, setCopiedPost] = useState<number|null>(null)
+  const [useSearch, setUseSearch] = useModuleSearchPref()
   const [expandedPost, setExpandedPost] = useState<number|null>(null)
 
   function togglePlatform(id: Platform) { setPlatforms(p => p.includes(id) ? p.filter(x=>x!==id) : [...p,id]) }
@@ -69,7 +71,7 @@ export default function KampaniaPage() {
       setTimeout(() => setProgress('Tworzę skrypty wideo i harmonogram...'), 10000)
       const res = await fetch('/api/kampania', {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ brief, platforms, duration, goals, masterPrompt: dna?.masterPrompt, brandName: dna?.brandName, industry: dna?.industry, tone: dna?.tone })
+        body: JSON.stringify({ brief, platforms, duration, goals, masterPrompt: dna?.masterPrompt, brandName: dna?.brandName, industry: dna?.industry, tone: dna?.tone, useSearch })
       })
       const j = await res.json()
       if (!res.ok) throw new Error(j.error)
@@ -201,6 +203,7 @@ export default function KampaniaPage() {
               </div>
             )}
             {error && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">{error}</p>}
+            <SearchToggle enabled={useSearch} onChange={setUseSearch} disabled={loading} />
             <button className="btn-primary flex items-center gap-2 px-8 py-3 text-base" onClick={generate} disabled={loading}>
               {loading ? <><Dots /> {progress || 'Generuję kampanię...'}</> : '🚀 Generuj kampanię 360°'}
             </button>
