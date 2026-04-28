@@ -32,6 +32,7 @@ interface TavilyOptions {
   excludeDomains?: string[]            // exclude these
   days?: number                        // for news topic: last N days
   timeoutMs?: number                   // request timeout (default 25s)
+  minScore?: number                    // filter out results with relevance score below this (0-1, default 0.3)
 }
 
 /**
@@ -59,6 +60,7 @@ export async function tavilySearch(
     excludeDomains,
     days,
     timeoutMs = 25000,
+    minScore = 0.3,  // filter low-relevance results by default
   } = options
 
   const body: Record<string, unknown> = {
@@ -107,17 +109,27 @@ export async function tavilySearch(
       images?: string[]
     }
 
-    return {
-      query: data.query,
-      answer: data.answer,
-      results: (data.results || []).map(r => ({
+    const filteredResults = (data.results || [])
+      .filter(r => r.score >= minScore)  // drop low-relevance noise
+      .map(r => ({
         title: r.title,
         url: r.url,
         content: r.content,
         score: r.score,
         publishedDate: r.published_date,
         rawContent: r.raw_content,
-      })),
+      }))
+
+    // Log if filter removed results (helps tuning threshold)
+    const filteredOut = (data.results || []).length - filteredResults.length
+    if (filteredOut > 0) {
+      console.log(`Tavily: filtered out ${filteredOut} low-score results (<${minScore}) for query: "${query.slice(0, 60)}"`)
+    }
+
+    return {
+      query: data.query,
+      answer: data.answer,
+      results: filteredResults,
       responseTime: data.response_time,
       images: data.images,
     }
