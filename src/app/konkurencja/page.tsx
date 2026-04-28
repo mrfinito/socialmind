@@ -10,7 +10,8 @@ interface SocialProfileInput { platform: string; url: string }
 interface SocialProfile {
   platform: string;
   // New: profileUrl + verified flag (post Tavily upgrade)
-  profileUrl?: string;
+  // null = profile not found, do not display URL
+  profileUrl?: string | null;
   verified?: boolean;
   // Legacy: estimatedUrl (kept for backward compatibility with old saved analyses)
   estimatedUrl?: string;
@@ -429,28 +430,47 @@ export default function KonkurencjaPage() {
                   <div className="card">
                     <div className="flex items-center justify-between mb-5">
                       <h3 className="text-sm font-semibold text-white">Profile social media konkurenta</h3>
-                      <span className="text-xs text-gray-600">
-                        {displayData.socialProfiles.some(p => p.verified)
-                          ? '🔍 Profile odnalezione w internecie · liczby szacunkowe'
-                          : '⚠️ Wszystkie dane szacunkowe — zweryfikuj ręcznie'}
-                      </span>
+                      {(() => {
+                        const total = displayData.socialProfiles.length
+                        const verified = displayData.socialProfiles.filter(p => p.verified === true).length
+                        const notFound = displayData.socialProfiles.filter(p => p.verified === false && !p.profileUrl).length
+                        if (verified === total) {
+                          return <span className="text-xs text-emerald-400">✓ Wszystkie {total} profile zweryfikowane</span>
+                        }
+                        if (verified > 0) {
+                          return <span className="text-xs text-gray-500">
+                            <span className="text-emerald-400">{verified}/{total}</span> profili zweryfikowanych
+                            {notFound > 0 && <span className="text-gray-600"> · {notFound} nie znaleziono</span>}
+                          </span>
+                        }
+                        return <span className="text-xs text-amber-400/80">⚠️ Brak zweryfikowanych profili — dane szacunkowe</span>
+                      })()}
                     </div>
                     <div className="grid grid-cols-3 gap-4">
                       {displayData.socialProfiles.map((profile, i) => {
-                        const activityColor = profile.lastActive === 'aktywny' ? '#34d399' : profile.lastActive === 'sporadyczny' ? '#fbbf24' : '#6b7280'
                         const plt = PLT_MAP[profile.platform?.toLowerCase()]
-                        // URL priority: 1) user-supplied, 2) Tavily-found, 3) AI estimated guess
+                        // Determine status: 1) user-supplied URL, 2) Tavily verified, 3) not found, 4) legacy estimated
                         const userProvidedUrl = socialInputs.find(s => s.platform === profile.platform?.toLowerCase())?.url
-                        const aiUrl = profile.profileUrl || profile.estimatedUrl || ''
-                        const finalUrl = userProvidedUrl || aiUrl
-                        // Verified = either user provided OR Tavily found (verified flag from backend)
-                        const isVerified = !!userProvidedUrl || profile.verified === true
-                        const verifiedSource = userProvidedUrl ? 'wpisany' : (profile.verified ? 'Tavily' : null)
+                        const tavilyVerified = profile.verified === true && !!profile.profileUrl
+                        const notFound = profile.verified === false && !profile.profileUrl
+                        const legacyEstimated = !!profile.estimatedUrl && !profile.profileUrl && profile.verified === undefined
+
+                        const finalUrl = userProvidedUrl || (tavilyVerified ? profile.profileUrl : '') || (legacyEstimated ? profile.estimatedUrl : '') || ''
+                        const isVerified = !!userProvidedUrl || tavilyVerified
+                        const verifiedSource = userProvidedUrl ? 'wpisany przez Ciebie' : 'znaleziony w internecie'
+
+                        const activityColor = profile.lastActive === 'aktywny' ? '#34d399' : profile.lastActive === 'sporadyczny' ? '#fbbf24' : '#6b7280'
+
                         return (
                           <div key={i} className="rounded-2xl p-4 space-y-3"
                             style={{
-                              background:'rgba(255,255,255,0.03)',
-                              border: isVerified ? '1px solid rgba(52,211,153,0.2)' : '1px solid rgba(255,255,255,0.07)',
+                              background: notFound ? 'rgba(255,255,255,0.015)' : 'rgba(255,255,255,0.03)',
+                              border: isVerified
+                                ? '1px solid rgba(52,211,153,0.3)'
+                                : notFound
+                                  ? '1px dashed rgba(255,255,255,0.1)'
+                                  : '1px solid rgba(251,191,36,0.15)',
+                              opacity: notFound ? 0.7 : 1,
                             }}>
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
@@ -460,56 +480,81 @@ export default function KonkurencjaPage() {
                               <div className="flex items-center gap-1.5">
                                 {isVerified ? (
                                   <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold"
-                                    style={{background:'rgba(52,211,153,0.15)',color:'#34d399',border:'1px solid rgba(52,211,153,0.25)'}}
+                                    style={{background:'rgba(52,211,153,0.15)',color:'#34d399',border:'1px solid rgba(52,211,153,0.3)'}}
                                     title={`Profil zweryfikowany (${verifiedSource})`}>
                                     ✓ zweryfikowany
+                                  </span>
+                                ) : notFound ? (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold"
+                                    style={{background:'rgba(255,255,255,0.04)',color:'#9ca3af',border:'1px solid rgba(255,255,255,0.08)'}}
+                                    title="Tavily nie znalazł profilu marki na tej platformie. Możliwe że marka nie ma tu konta lub używa innej nazwy">
+                                    ✗ nie znaleziono
                                   </span>
                                 ) : (
                                   <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold"
                                     style={{background:'rgba(251,191,36,0.1)',color:'#fbbf24',border:'1px solid rgba(251,191,36,0.2)'}}
-                                    title="Profil nie został odnaleziony — możliwe że marka nie ma konta na tej platformie">
-                                    ⚠ niepotwierdzony
+                                    title="URL nie został zweryfikowany — może być nieprawidłowy">
+                                    ⚠ szacunkowy
                                   </span>
                                 )}
-                                <div className="w-1.5 h-1.5 rounded-full" style={{background:activityColor}}/>
-                                <span className="text-[10px]" style={{color:activityColor}}>{profile.lastActive}</span>
+                                {!notFound && (
+                                  <>
+                                    <div className="w-1.5 h-1.5 rounded-full" style={{background:activityColor}}/>
+                                    <span className="text-[10px]" style={{color:activityColor}}>{profile.lastActive}</span>
+                                  </>
+                                )}
                               </div>
                             </div>
-                            <div className="grid grid-cols-3 gap-2">
-                              {[
-                                {label:'Obserwujący', value: profile.followers},
-                                {label:'Posty/tydz.', value: String(profile.postsPerWeek)},
-                                {label:'Eng. rate', value: profile.avgEngagement},
-                              ].map(stat => (
-                                <div key={stat.label} className="text-center p-2 rounded-xl"
-                                  style={{background:'rgba(255,255,255,0.04)'}}>
-                                  <p className="text-sm font-bold text-white">{stat.value}</p>
-                                  <p className="text-[9px] text-gray-600 mt-0.5">{stat.label}</p>
+
+                            {notFound ? (
+                              // Compact "not found" state — no fake numbers
+                              <div className="py-3 text-center space-y-2">
+                                <p className="text-xs text-gray-500 leading-relaxed">
+                                  Nie znaleziono oficjalnego profilu marki na tej platformie.
+                                </p>
+                                <p className="text-[10px] text-gray-700">
+                                  Możliwe że marka tu nie działa, lub używa innej nazwy niż wpisana.
+                                </p>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="grid grid-cols-3 gap-2">
+                                  {[
+                                    {label:'Obserwujący', value: profile.followers},
+                                    {label:'Posty/tydz.', value: String(profile.postsPerWeek)},
+                                    {label:'Eng. rate', value: profile.avgEngagement},
+                                  ].map(stat => (
+                                    <div key={stat.label} className="text-center p-2 rounded-xl"
+                                      style={{background:'rgba(255,255,255,0.04)'}}>
+                                      <p className="text-sm font-bold text-white">{stat.value}</p>
+                                      <p className="text-[9px] text-gray-600 mt-0.5">{stat.label}</p>
+                                    </div>
+                                  ))}
                                 </div>
-                              ))}
-                            </div>
-                            <div>
-                              <p className="text-[10px] text-gray-600 mb-1">Główny content</p>
-                              <p className="text-xs text-gray-400 leading-relaxed">{profile.contentFocus}</p>
-                            </div>
-                            <div className="space-y-1.5">
-                              <div className="flex items-start gap-1.5">
-                                <span className="text-emerald-400 text-xs shrink-0 mt-0.5">✓</span>
-                                <p className="text-[11px] text-gray-400">{profile.strength}</p>
-                              </div>
-                              <div className="flex items-start gap-1.5">
-                                <span className="text-red-400 text-xs shrink-0 mt-0.5">✗</span>
-                                <p className="text-[11px] text-gray-400">{profile.weakness}</p>
-                              </div>
-                            </div>
-                            {finalUrl && (
-                              <a href={finalUrl} target="_blank" rel="noopener noreferrer"
-                                className="flex items-center gap-1.5 text-[11px] transition-colors hover:underline"
-                                style={{color: isVerified ? '#34d399' : '#fbbf24'}}>
-                                <span>↗</span>
-                                <span className="truncate">{finalUrl.replace(/^https?:\/\//,'')}</span>
-                                {!isVerified && <span className="text-gray-700 shrink-0">(zgadnięty)</span>}
-                              </a>
+                                <div>
+                                  <p className="text-[10px] text-gray-600 mb-1">Główny content</p>
+                                  <p className="text-xs text-gray-400 leading-relaxed">{profile.contentFocus}</p>
+                                </div>
+                                <div className="space-y-1.5">
+                                  <div className="flex items-start gap-1.5">
+                                    <span className="text-emerald-400 text-xs shrink-0 mt-0.5">✓</span>
+                                    <p className="text-[11px] text-gray-400">{profile.strength}</p>
+                                  </div>
+                                  <div className="flex items-start gap-1.5">
+                                    <span className="text-red-400 text-xs shrink-0 mt-0.5">✗</span>
+                                    <p className="text-[11px] text-gray-400">{profile.weakness}</p>
+                                  </div>
+                                </div>
+                                {finalUrl && (
+                                  <a href={finalUrl} target="_blank" rel="noopener noreferrer"
+                                    className="flex items-center gap-1.5 text-[11px] transition-colors hover:underline"
+                                    style={{color: isVerified ? '#34d399' : '#fbbf24'}}>
+                                    <span>↗</span>
+                                    <span className="truncate">{finalUrl.replace(/^https?:\/\//,'')}</span>
+                                    {!isVerified && <span className="text-gray-700 shrink-0">(zgadnięty)</span>}
+                                  </a>
+                                )}
+                              </>
                             )}
                           </div>
                         )

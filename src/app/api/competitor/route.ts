@@ -31,7 +31,6 @@ export async function POST(req: NextRequest) {
     const name = (competitorName || competitorUrl || 'konkurent').replace(/['"]/g, '')
     const ourBrand = ourDNA?.brandName || 'nasza marka'
     const ourIndustry = ourDNA?.industry || 'ogolna'
-    const slug = name.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '')
 
     const platformsToCheck: string[] = (platforms?.length ? platforms : ['facebook', 'instagram', 'linkedin']) as string[]
 
@@ -47,20 +46,71 @@ export async function POST(req: NextRequest) {
       pinterest: ['pinterest.com'],
     }
 
-    // Discovered real profile URLs per platform
+    // ─── Strict matching helpers ───
+    // Normalize text: lowercase, no diacritics, no spaces/punctuation
+    const normalize = (s: string): string =>
+      s.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip accents
+        .replace(/[^a-z0-9]/g, '')
+
+    // Generate name variants for fuzzy matching
+    const nameNorm = normalize(competitorName || '')
+    const nameTokens = (competitorName || '').toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .split(/[\s\-_.&]+/)
+      .filter((t: string) => t.length >= 3) // ignore short words
+
+    // Check if a profile URL/title actually mentions the brand
+    const profileMatchesBrand = (url: string, title: string, _content: string): boolean => {
+      if (nameTokens.length === 0) return false
+
+      // Extract path segment from URL (e.g. facebook.com/CocaColaPL → "cocacolapl")
+      let pathSlug = ''
+      try {
+        const u = new URL(url)
+        // Get first meaningful path segment
+        const segments = u.pathname.split('/').filter(Boolean)
+        // For LinkedIn: company/{slug}, for FB/IG/TikTok: just /{slug}
+        pathSlug = normalize(segments[segments.length - 1] || segments[0] || '')
+      } catch { return false }
+
+      const titleNorm = normalize(title)
+
+      // Strong signal: brand name (full or token) appears in URL path
+      const urlContainsBrand = nameNorm.length >= 4 && pathSlug.includes(nameNorm.slice(0, Math.min(nameNorm.length, 12)))
+
+      // Or: at least 1 brand token (length >=4) appears in URL path
+      const significantTokens = nameTokens.filter((t: string) => t.length >= 4)
+      const urlContainsToken = significantTokens.length > 0 &&
+        significantTokens.some((t: string) => pathSlug.includes(normalize(t)))
+
+      // Or: brand name appears in title (less strong but still good)
+      const titleContainsBrand = nameNorm.length >= 4 && titleNorm.includes(nameNorm.slice(0, Math.min(nameNorm.length, 12)))
+
+      // Require URL match (strongest signal) OR title match
+      // The content match alone is too weak — pages can mention brands they're not about
+      return urlContainsBrand || urlContainsToken || titleContainsBrand
+    }
+
+    // Discovered real profile URLs per platform (only verified matches)
     const realProfiles: Record<string, { url: string; title: string; preview: string }> = {}
+    // Profiles that were searched but no good match found
+    const notFoundPlatforms: string[] = []
 
     // ─── Tavily search: real profiles + general info ───
     let searchContext = ''
     let searchSources: Array<{title: string; url: string}> = []
     if (useSearch !== false && process.env.TAVILY_API_KEY && competitorName) {
       try {
-        // Build per-platform search queries to find REAL profile URLs
+        // Build per-platform search queries with brand name in QUOTES + 'oficjalna strona'
+        // for stricter matching
         const profileSearches = platformsToCheck.map(platform => {
           const domains = PLATFORM_DOMAINS[platform.toLowerCase()] || []
           if (domains.length === 0) return null
-          return tavilySearch(`${competitorName} oficjalny profil`, {
-            maxResults: 2,
+          // Query that emphasizes exact brand match — Tavily handles quotes well
+          const query = `${competitorName} ${platform} oficjalna strona profil`
+          return tavilySearch(query, {
+            maxResults: 4, // get a few to pick from after filtering
             searchDepth: 'basic',
             includeDomains: domains,
           }).then(result => ({ platform, result }))
@@ -74,35 +124,57 @@ export async function POST(req: NextRequest) {
 
         const [generalRes, ...profileRes] = await Promise.all([generalSearch, ...profileSearches])
 
-        // Extract first valid profile URL per platform
+        // Score threshold: Tavily returns relevance 0-1, only accept >=0.4
+        const SCORE_THRESHOLD = 0.4
+
         for (const item of profileRes) {
           const { platform, result } = item
-          const domains = PLATFORM_DOMAINS[platform.toLowerCase()] || []
-          const firstMatch = result?.results.find(r => {
+          if (!result?.results?.length) {
+            notFoundPlatforms.push(platform)
+            continue
+          }
+
+          const platformDomains = PLATFORM_DOMAINS[platform.toLowerCase()] || []
+
+          // Filter results: must be from correct domain, decent score, not generic, AND match brand
+          const candidates = result.results.filter(r => {
+            // 1. Correct domain
             try {
               const host = new URL(r.url).hostname.replace(/^www\./, '').toLowerCase()
-              return domains.some(d => host === d || host.endsWith('.' + d))
+              if (!platformDomains.some(d => host === d || host.endsWith('.' + d))) return false
             } catch { return false }
+
+            // 2. Score threshold
+            if (r.score < SCORE_THRESHOLD) return false
+
+            // 3. Not generic path
+            try {
+              const path = new URL(r.url).pathname
+              const isGenericPath = /^\/(help|about|policies|terms|privacy|legal|jobs|business|developers|login|signup|search|posts|share|watch|videos|reels|stories|hashtag|explore|tag)/i.test(path) || path === '/' || path === ''
+              if (isGenericPath) return false
+            } catch { return false }
+
+            // 4. STRICT: brand name must actually appear in URL or title
+            return profileMatchesBrand(r.url, r.title, r.content)
           })
-          if (firstMatch) {
-            // Filter out generic platform URLs (e.g. facebook.com/help, linkedin.com/jobs)
-            const url = firstMatch.url
-            const path = new URL(url).pathname
-            const isGenericPath = /^\/(help|about|policies|terms|privacy|legal|jobs|business|developers|login|signup|search)/i.test(path) || path === '/' || path === ''
-            if (!isGenericPath) {
-              realProfiles[platform] = {
-                url,
-                title: firstMatch.title,
-                preview: firstMatch.content.slice(0, 250),
-              }
+
+          if (candidates.length > 0) {
+            // Take highest-scoring match
+            const best = candidates.sort((a, b) => b.score - a.score)[0]
+            realProfiles[platform] = {
+              url: best.url,
+              title: best.title,
+              preview: best.content.slice(0, 250),
             }
+          } else {
+            notFoundPlatforms.push(platform)
           }
         }
 
-        // Build context from general + profile previews
+        // Build context from general + matched profiles only
         const allResults = [
           ...(generalRes?.results || []),
-          ...profileRes.flatMap(p => p.result?.results || []),
+          ...Object.values(realProfiles).map(p => ({ title: p.title, url: p.url, content: p.preview, score: 1, publishedDate: undefined })),
         ]
         if (allResults.length > 0) {
           searchContext = formatSearchForPrompt(allResults, { maxPerResult: 500, maxTotal: 4000 })
@@ -113,12 +185,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Build per-platform JSON template, injecting REAL URLs where found
+    // Build per-platform JSON template, injecting REAL URLs where found, null otherwise
     const profilesJson = platformsToCheck.map(platform => {
       const real = realProfiles[platform.toLowerCase()]
-      const profileUrl = real?.url || `https://${platform}.com/${slug}`
-      const verified = !!real
-      return `{"platform":"${platform}","profileUrl":"${profileUrl}","verified":${verified},"followers":"szacowana liczba np. 2400","postsPerWeek":3,"avgEngagement":"2.1%","contentFocus":"opis glownego contentu","lastActive":"aktywny","strength":"co robi dobrze","weakness":"co robi slabo"}`
+      if (real) {
+        // Verified profile from Tavily — inject URL with verified:true
+        return `{"platform":"${platform}","profileUrl":"${real.url}","verified":true,"followers":"szacowana liczba np. 2400","postsPerWeek":3,"avgEngagement":"2.1%","contentFocus":"opis glownego contentu","lastActive":"aktywny","strength":"co robi dobrze","weakness":"co robi slabo"}`
+      } else {
+        // Not found — DO NOT make up a URL, leave it null
+        return `{"platform":"${platform}","profileUrl":null,"verified":false,"followers":"nieznane","postsPerWeek":0,"avgEngagement":"nieznane","contentFocus":"Nie znaleziono profilu - mozliwe ze marka nie jest aktywna na tej platformie","lastActive":"nieznane","strength":"nie do oceny bez dostepu do profilu","weakness":"profil nieznaleziony lub marka nie ma konta"}`
+      }
     }).join(',')
 
     // Build "real profile context" section for the prompt
@@ -127,6 +203,10 @@ export async function POST(req: NextRequest) {
         Object.entries(realProfiles).map(([p, info]) =>
           `- ${p}: ${info.url}\n  Tytul: ${info.title}\n  Tresc: ${info.preview}`
         ).join('\n\n')
+      : ''
+
+    const notFoundSummary = notFoundPlatforms.length > 0
+      ? `\n\nNIE ZNALEZIONO PROFILI dla: ${notFoundPlatforms.join(', ')}. Te platformy maja "profileUrl":null i "verified":false. NIE wypelniaj ich szacunkowymi danymi - zostaw pola pokazujace ze profil nie zostal znaleziony.`
       : ''
 
     const prompt = `Jestes ekspertem od analizy konkurencji i strategii social media.
@@ -142,13 +222,12 @@ Te informacje pochodza z aktualnych zrodel internetowych. Wykorzystaj je do REAL
 ${searchContext}
 
 ═══════════════════════════════` : 'Brak danych z wyszukiwarki - oprzyj analize na nazwie i ogolnych regulach branzowych.'}
-${realProfilesSummary}
+${realProfilesSummary}${notFoundSummary}
 
 WAZNE - profile spolecznosciowe:
-${Object.keys(realProfiles).length > 0
-  ? '- Dla platform z prawdziwym URL (oznaczone "verified":true): profileUrl JEST JUZ WPISANY w szablonie JSON. Wpisz tylko followers/engagement/strength/weakness na podstawie tego co wiesz lub szacuj realistycznie. NIE zmieniaj profileUrl.'
-  : '- Nie znaleziono prawdziwych profili. Zostaw profileUrl jako szacunkowy, ale ustaw "verified":false.'}
-- Dla platform bez prawdziwego URL ("verified":false): zaznacz to jasno w polu "weakness" jako "Profil niepotwierdzony - mozliwe ze marka nie jest aktywna na tej platformie".
+- W szablonie JSON niektore profile maja "profileUrl":"<URL>" i "verified":true - to PRAWDZIWE profile znalezione w internecie. Mozesz wypelnic ich liczby (followers, postsPerWeek, avgEngagement) na podstawie wyszukiwania lub szacowac realistycznie. NIE zmieniaj profileUrl.
+- Inne maja "profileUrl":null i "verified":false - to platformy GDZIE NIE ZNALEZIONO profilu marki. NIE wymyslaj URL-ow ani liczb. Zostaw je jak sa - z "nieznane" w polach.
+- W ogolnej ocenie (overallSocialScore) ZIGNORUJ platformy gdzie nie znaleziono profilu - oceniaj tylko te zweryfikowane.
 
 Na podstawie powyzszych danych wygeneruj realistyczna analize. Wykorzystuj prawdziwe dane gdzie sie pojawiaja.
 
