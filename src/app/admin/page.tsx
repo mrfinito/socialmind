@@ -4,11 +4,52 @@ import AppShell from '@/components/layout/AppShell'
 
 // ─── Types ────────────────────────────────────────────────────
 interface Permissions {
-  can_generate_posts: boolean; can_kampania: boolean; can_persona: boolean
-  can_listening: boolean; can_competitor: boolean; can_repurposing: boolean
-  can_ab_testy: boolean; can_wideo: boolean; can_copywriter: boolean
-  can_content_score: boolean; can_trendy: boolean; can_raport: boolean
-  max_projects: number; max_posts_per_month: number
+  // Główne
+  can_strategia: boolean
+  can_rtm: boolean
+  can_asystent: boolean
+  can_briefy: boolean
+  can_wlasny_brief: boolean
+  can_grafika: boolean
+  can_prezentacja: boolean
+  can_generate_posts: boolean
+  // Praca codzienna
+  can_biblioteka: boolean
+  can_scheduler: boolean
+  can_kalendarz: boolean
+  can_analityka: boolean
+  can_raport: boolean
+  // Marka
+  can_marka: boolean
+  can_brand_dna: boolean
+  can_platformy: boolean
+  can_materialy: boolean
+  can_stworzone: boolean
+  can_news: boolean
+  can_projekty: boolean
+  can_wiadomosci: boolean
+  // AI Tools
+  can_copywriter: boolean
+  can_content_score: boolean
+  can_kampania: boolean
+  can_persona: boolean
+  can_listening: boolean
+  can_wideo: boolean
+  can_trendy: boolean
+  can_competitor: boolean
+  can_repurposing: boolean
+  can_ab_testy: boolean
+  // Specjaliści AI
+  can_meta_ads: boolean
+  can_performance: boolean
+  can_storyboard: boolean
+  can_crisis: boolean
+  can_voice_checker: boolean
+  can_newsletter: boolean
+  can_caption_ab: boolean
+  // Limits
+  max_projects: number
+  max_posts_per_month: number
 }
 interface UserRow {
   id: string; email: string; created_at: string; last_sign_in: string
@@ -21,6 +62,15 @@ interface Invite {
   id: string; token: string; email?: string; plan: string
   note?: string; used_at?: string; expires_at: string; created_at: string
 }
+interface ActivityLogEntry {
+  id: string
+  user_id: string
+  user_email?: string
+  action: string
+  details?: string
+  metadata?: Record<string, unknown>
+  created_at: string
+}
 
 // ─── Constants ────────────────────────────────────────────────
 const PLAN_CFG: Record<string,{color:string;bg:string;border:string}> = {
@@ -29,52 +79,116 @@ const PLAN_CFG: Record<string,{color:string;bg:string;border:string}> = {
   agency: {color:'#fbbf24',bg:'rgba(251,191,36,0.15)',border:'rgba(251,191,36,0.3)'},
 }
 
-const MODULE_LIST = [
-  { key:'can_generate_posts', label:'Generator postów',    icon:'✦' },
-  { key:'can_copywriter',     label:'AI Copywriter',       icon:'✍️' },
-  { key:'can_content_score',  label:'Content Score',       icon:'📊' },
-  { key:'can_kampania',       label:'Kampania 360°',       icon:'🚀' },
-  { key:'can_persona',        label:'Persona Builder',     icon:'👤' },
-  { key:'can_listening',      label:'Social Listening',    icon:'📡' },
-  { key:'can_competitor',     label:'Analiza konkurencji', icon:'🔍' },
-  { key:'can_repurposing',    label:'Smart Repurposing',   icon:'♻️' },
-  { key:'can_ab_testy',       label:'Testy A/B',           icon:'🧪' },
-  { key:'can_wideo',          label:'Skrypty wideo',       icon:'🎬' },
-  { key:'can_trendy',         label:'Trendy',              icon:'📡' },
-  { key:'can_raport',         label:'Raporty',             icon:'📈' },
+interface ModuleDef { key: keyof Permissions; label: string; icon: string }
+interface ModuleGroup { label: string; items: ModuleDef[] }
+
+const MODULE_GROUPS: ModuleGroup[] = [
+  {
+    label: 'Główne',
+    items: [
+      { key:'can_strategia',      label:'Strategia',           icon:'🧭' },
+      { key:'can_rtm',            label:'RTM Generator',       icon:'⚡' },
+      { key:'can_asystent',       label:'Asystent AI',         icon:'🤖' },
+      { key:'can_briefy',         label:'Briefy klientów',     icon:'📋' },
+      { key:'can_wlasny_brief',   label:'Własny brief',        icon:'📂' },
+      { key:'can_grafika',        label:'Stwórz grafikę',      icon:'🖼️' },
+      { key:'can_prezentacja',    label:'Prezentacja',         icon:'🎤' },
+      { key:'can_generate_posts', label:'Generuj posty',       icon:'✦' },
+    ],
+  },
+  {
+    label: 'Praca codzienna',
+    items: [
+      { key:'can_biblioteka', label:'Biblioteka', icon:'📚' },
+      { key:'can_scheduler',  label:'Scheduler',  icon:'📅' },
+      { key:'can_kalendarz',  label:'Kalendarz',  icon:'⊟' },
+      { key:'can_analityka',  label:'Analityka',  icon:'⊘' },
+      { key:'can_raport',     label:'Raport',     icon:'📈' },
+    ],
+  },
+  {
+    label: 'Marka',
+    items: [
+      { key:'can_marka',      label:'Marka',          icon:'◈' },
+      { key:'can_brand_dna',  label:'Brand DNA',      icon:'◉' },
+      { key:'can_platformy',  label:'Platformy',      icon:'⊹' },
+      { key:'can_materialy',  label:'Materiały',      icon:'⊡' },
+      { key:'can_stworzone',  label:'Stworzone',      icon:'📦' },
+      { key:'can_news',       label:'Newsy branżowe', icon:'📰' },
+      { key:'can_projekty',   label:'Projekty',       icon:'🗂' },
+      { key:'can_wiadomosci', label:'Wiadomości',     icon:'📬' },
+    ],
+  },
+  {
+    label: 'AI Tools',
+    items: [
+      { key:'can_copywriter',    label:'AI Copywriter',       icon:'✍️' },
+      { key:'can_content_score', label:'Content Score',       icon:'📊' },
+      { key:'can_kampania',      label:'Kampania 360°',       icon:'🚀' },
+      { key:'can_persona',       label:'Persona Builder',     icon:'👤' },
+      { key:'can_listening',     label:'Social Listening',    icon:'📡' },
+      { key:'can_wideo',         label:'Skrypty wideo',       icon:'🎬' },
+      { key:'can_trendy',        label:'Trendy',              icon:'📡' },
+      { key:'can_competitor',    label:'Konkurencja',         icon:'🔍' },
+      { key:'can_repurposing',   label:'Smart Repurposing',   icon:'♻️' },
+      { key:'can_ab_testy',      label:'Testy A/B',           icon:'🧪' },
+    ],
+  },
+  {
+    label: 'Specjaliści AI',
+    items: [
+      { key:'can_meta_ads',      label:'Meta Ads',            icon:'📣' },
+      { key:'can_performance',   label:'Brief Performance',   icon:'⚡' },
+      { key:'can_storyboard',    label:'Storyboard',          icon:'🎬' },
+      { key:'can_crisis',        label:'Crisis Response',     icon:'🚨' },
+      { key:'can_voice_checker', label:'Voice Checker',       icon:'🎯' },
+      { key:'can_newsletter',    label:'Newsletter',          icon:'📧' },
+      { key:'can_caption_ab',    label:'Caption A/B',         icon:'🧪' },
+    ],
+  },
 ]
 
+// Flat list for counting + iteration
+const MODULE_LIST: ModuleDef[] = MODULE_GROUPS.flatMap(g => g.items)
+
+// Helper to build preset with all modules either on or off
+function buildPreset(enabledKeys: Array<keyof Permissions>, max_projects: number, max_posts_per_month: number): Partial<Permissions> {
+  const result: Partial<Permissions> = { max_projects, max_posts_per_month }
+  for (const m of MODULE_LIST) {
+    (result as Record<string, boolean>)[m.key as string] = enabledKeys.includes(m.key)
+  }
+  return result
+}
+
+// Free: tylko podstawy
+const FREE_KEYS: Array<keyof Permissions> = [
+  'can_generate_posts', 'can_biblioteka', 'can_scheduler', 'can_kalendarz',
+  'can_marka', 'can_brand_dna', 'can_platformy', 'can_projekty', 'can_wiadomosci',
+  'can_trendy', 'can_news', 'can_asystent',
+]
+
+// Pro: wszystko bez bardzo zaawansowanych
+const PRO_KEYS: Array<keyof Permissions> = [
+  ...FREE_KEYS,
+  'can_strategia', 'can_rtm', 'can_briefy', 'can_wlasny_brief', 'can_grafika',
+  'can_prezentacja', 'can_analityka', 'can_raport', 'can_materialy', 'can_stworzone',
+  'can_copywriter', 'can_content_score', 'can_kampania', 'can_persona',
+  'can_competitor', 'can_repurposing', 'can_ab_testy', 'can_wideo',
+  'can_meta_ads', 'can_storyboard', 'can_voice_checker', 'can_newsletter', 'can_caption_ab',
+]
+
+// Agency: wszystko
+const AGENCY_KEYS: Array<keyof Permissions> = MODULE_LIST.map(m => m.key)
+
 const PLAN_PRESETS: Record<string, Partial<Permissions>> = {
-  free: {
-    can_generate_posts:true, can_copywriter:false, can_content_score:false,
-    can_kampania:false, can_persona:false, can_listening:false,
-    can_competitor:false, can_repurposing:false, can_ab_testy:false,
-    can_wideo:false, can_trendy:true, can_raport:false,
-    max_projects:1, max_posts_per_month:10,
-  },
-  pro: {
-    can_generate_posts:true, can_copywriter:true, can_content_score:true,
-    can_kampania:true, can_persona:true, can_listening:false,
-    can_competitor:true, can_repurposing:true, can_ab_testy:true,
-    can_wideo:true, can_trendy:true, can_raport:true,
-    max_projects:10, max_posts_per_month:200,
-  },
-  agency: {
-    can_generate_posts:true, can_copywriter:true, can_content_score:true,
-    can_kampania:true, can_persona:true, can_listening:true,
-    can_competitor:true, can_repurposing:true, can_ab_testy:true,
-    can_wideo:true, can_trendy:true, can_raport:true,
-    max_projects:999, max_posts_per_month:9999,
-  },
+  free:   buildPreset(FREE_KEYS, 1, 10),
+  pro:    buildPreset(PRO_KEYS, 10, 200),
+  agency: buildPreset(AGENCY_KEYS, 999, 9999),
 }
 
 const DEFAULT_PERMS: Permissions = {
-  can_generate_posts:true, can_kampania:true, can_persona:true,
-  can_listening:false, can_competitor:true, can_repurposing:true,
-  can_ab_testy:true, can_wideo:true, can_copywriter:true,
-  can_content_score:true, can_trendy:true, can_raport:true,
-  max_projects:3, max_posts_per_month:50,
-}
+  ...buildPreset(PRO_KEYS, 3, 50),
+} as Permissions
 
 function PlanBadge({plan}:{plan:string}) {
   const cfg = PLAN_CFG[plan] || PLAN_CFG.free
@@ -115,7 +229,7 @@ function PermissionsModal({ user, onSave, onClose }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{background:'rgba(0,0,0,0.75)'}} onClick={onClose}>
-      <div className="w-full max-w-lg rounded-2xl overflow-hidden"
+      <div className="w-full max-w-3xl rounded-2xl overflow-hidden"
         style={{background:'#1a1f2e',border:'1px solid rgba(255,255,255,0.1)'}}
         onClick={e=>e.stopPropagation()}>
 
@@ -129,7 +243,7 @@ function PermissionsModal({ user, onSave, onClose }: {
           <button onClick={onClose} className="text-gray-600 hover:text-gray-400 text-xl w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/5">✕</button>
         </div>
 
-        <div className="px-6 py-4 space-y-5 max-h-[70vh] overflow-y-auto">
+        <div className="px-6 py-4 space-y-5 max-h-[75vh] overflow-y-auto">
           {/* Presets */}
           <div>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Szybkie presety</p>
@@ -149,28 +263,68 @@ function PermissionsModal({ user, onSave, onClose }: {
             <p className="text-[10px] text-gray-600 mt-1.5">Preset ustawia wszystkie poniższe wartości — możesz je potem zmienić ręcznie</p>
           </div>
 
-          {/* Module toggles */}
+          {/* Module toggles - grouped */}
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Dostęp do modułów</p>
               <span className="text-xs text-gray-600">{enabledCount}/{MODULE_LIST.length} aktywnych</span>
             </div>
-            <div className="space-y-1.5">
-              {MODULE_LIST.map(m => {
-                const enabled = !!perms[m.key as keyof Permissions]
+
+            <div className="space-y-4">
+              {MODULE_GROUPS.map(group => {
+                const groupEnabled = group.items.filter(m => perms[m.key]).length
+                const allOn = groupEnabled === group.items.length
+                const allOff = groupEnabled === 0
                 return (
-                  <button key={m.key} onClick={() => toggle(m.key as keyof Permissions)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all"
-                    style={{
-                      background: enabled ? 'rgba(99,102,241,0.1)' : 'rgba(255,255,255,0.02)',
-                      border: `1px solid ${enabled ? 'rgba(99,102,241,0.25)' : 'rgba(255,255,255,0.06)'}`,
-                    }}>
-                    <span className="text-base w-6 text-center">{m.icon}</span>
-                    <span className={`flex-1 text-sm text-left ${enabled?'text-gray-200':'text-gray-600'}`}>{m.label}</span>
-                    <div className={`w-9 h-5 rounded-full transition-all relative ${enabled?'bg-indigo-500':'bg-gray-800'}`}>
-                      <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${enabled?'left-4':'left-0.5'}`}/>
+                  <div key={group.label}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-300/70">
+                        {group.label}
+                        <span className="ml-2 text-gray-600 normal-case font-normal">{groupEnabled}/{group.items.length}</span>
+                      </p>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => setPerms(prev => {
+                            const next = { ...prev }
+                            for (const m of group.items) (next as Record<string, boolean | number>)[m.key as string] = true
+                            setActivePreset(null)
+                            return next
+                          })}
+                          disabled={allOn}
+                          className="text-[10px] px-2 py-0.5 rounded transition-all disabled:opacity-30"
+                          style={{background:'rgba(99,102,241,0.15)',color:'#a5b4fc'}}>Wszystko</button>
+                        <button
+                          onClick={() => setPerms(prev => {
+                            const next = { ...prev }
+                            for (const m of group.items) (next as Record<string, boolean | number>)[m.key as string] = false
+                            setActivePreset(null)
+                            return next
+                          })}
+                          disabled={allOff}
+                          className="text-[10px] px-2 py-0.5 rounded transition-all disabled:opacity-30"
+                          style={{background:'rgba(255,255,255,0.04)',color:'#6b7280'}}>Nic</button>
+                      </div>
                     </div>
-                  </button>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {group.items.map(m => {
+                        const enabled = !!perms[m.key]
+                        return (
+                          <button key={m.key} onClick={() => toggle(m.key)}
+                            className="flex items-center gap-2 px-2.5 py-2 rounded-lg transition-all"
+                            style={{
+                              background: enabled ? 'rgba(99,102,241,0.1)' : 'rgba(255,255,255,0.02)',
+                              border: `1px solid ${enabled ? 'rgba(99,102,241,0.25)' : 'rgba(255,255,255,0.06)'}`,
+                            }}>
+                            <span className="text-sm w-5 text-center flex-shrink-0">{m.icon}</span>
+                            <span className={`flex-1 text-xs text-left truncate ${enabled?'text-gray-200':'text-gray-600'}`}>{m.label}</span>
+                            <div className={`w-7 h-4 rounded-full transition-all relative flex-shrink-0 ${enabled?'bg-indigo-500':'bg-gray-800'}`}>
+                              <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all ${enabled?'left-[14px]':'left-0.5'}`}/>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
                 )
               })}
             </div>
@@ -344,11 +498,26 @@ export default function AdminPage() {
   const [invites, setInvites] = useState<Invite[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [activeTab, setActiveTab] = useState<'users'|'invites'>('users')
+  const [activeTab, setActiveTab] = useState<'users'|'invites'|'activity'>('users')
   const [search, setSearch] = useState('')
   const [editingUser, setEditingUser] = useState<UserRow|null>(null)
   const [chatUser, setChatUser] = useState<UserRow|null>(null)
   const [deletingUser, setDeletingUser] = useState<string|null>(null)
+
+  // New filters
+  const [planFilter, setPlanFilter] = useState<'all'|'free'|'pro'|'agency'>('all')
+  const [activityFilter, setActivityFilter] = useState<'all'|'today'|'week'|'month'|'inactive'>('all')
+  const [sortBy, setSortBy] = useState<'newest'|'oldest'|'active'|'projects'|'drafts'>('newest')
+
+  // Bulk operations
+  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set())
+  const [bulkAction, setBulkAction] = useState<string>('')
+  const [bulkProcessing, setBulkProcessing] = useState(false)
+
+  // Activity log
+  const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([])
+  const [activityFilterUser, setActivityFilterUser] = useState<string>('')
+  const [activityFilterAction, setActivityFilterAction] = useState<string>('')
 
   // Invite form
   const [invEmail, setInvEmail] = useState('')
@@ -448,22 +617,131 @@ export default function AdminPage() {
     setUsers(prev => prev.map(u => u.id===userId ? {...u, profile:{...u.profile,is_admin:!current}} : u))
   }
 
+  async function runBulkAction() {
+    if (!bulkAction || selectedUsers.size === 0) return
+    const ids = Array.from(selectedUsers)
+
+    if (bulkAction === 'delete') {
+      if (!confirm(`Usunąć ${ids.length} użytkowników? Operacja jest nieodwracalna.`)) return
+    }
+
+    setBulkProcessing(true)
+    try {
+      if (bulkAction.startsWith('plan:')) {
+        const plan = bulkAction.split(':')[1]
+        await Promise.all(ids.map(id =>
+          fetch('/api/admin/update-plan', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ userId: id, plan })
+          })
+        ))
+        setUsers(prev => prev.map(u => ids.includes(u.id) ? {...u, profile:{...u.profile,plan}} : u))
+      } else if (bulkAction.startsWith('preset:')) {
+        const presetKey = bulkAction.split(':')[1]
+        const preset = PLAN_PRESETS[presetKey]
+        if (!preset) return
+        const fullPerms = { ...DEFAULT_PERMS, ...preset } as Permissions
+        await Promise.all(ids.map(id =>
+          fetch('/api/admin/permissions', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ userId: id, permissions: fullPerms })
+          })
+        ))
+        setUsers(prev => prev.map(u => ids.includes(u.id) ? {...u, permissions: fullPerms} : u))
+      } else if (bulkAction === 'delete') {
+        await Promise.all(ids.map(id =>
+          fetch(`/api/admin/users?id=${id}`, { method:'DELETE' })
+        ))
+        setUsers(prev => prev.filter(u => !ids.includes(u.id)))
+      }
+      setSelectedUsers(new Set())
+      setBulkAction('')
+    } catch (e) {
+      alert('Błąd podczas operacji bulk: ' + (e instanceof Error ? e.message : 'unknown'))
+    } finally {
+      setBulkProcessing(false)
+    }
+  }
+
+  async function loadActivityLog() {
+    try {
+      const res = await fetch('/api/admin/activity-log')
+      if (!res.ok) return
+      const json = await res.json()
+      setActivityLog(json.entries || [])
+    } catch (e) {
+      console.error('activity log load failed:', e)
+    }
+  }
+
+  // Load activity log when tab is active
+  useEffect(() => {
+    if (activeTab === 'activity') loadActivityLog()
+  }, [activeTab])
+
   function copy(text: string, key: string) {
     navigator.clipboard.writeText(text)
     setCopied(key); setTimeout(()=>setCopied(null), 1500)
   }
 
-  const filtered = users.filter(u =>
-    !search || u.email?.toLowerCase().includes(search.toLowerCase()) ||
-    u.profile?.full_name?.toLowerCase().includes(search.toLowerCase())
-  )
+  // ── Filters: plan + sort + activity status ──
+  const filtered = users.filter(u => {
+    // Search
+    if (search) {
+      const s = search.toLowerCase()
+      const matchEmail = u.email?.toLowerCase().includes(s)
+      const matchName = u.profile?.full_name?.toLowerCase().includes(s)
+      if (!matchEmail && !matchName) return false
+    }
+    // Plan filter
+    if (planFilter !== 'all') {
+      const userPlan = u.profile?.plan || 'free'
+      if (planFilter !== userPlan) return false
+    }
+    // Activity filter
+    if (activityFilter !== 'all') {
+      const last = u.last_sign_in ? new Date(u.last_sign_in).getTime() : 0
+      const now = Date.now()
+      const day = 86400000
+      if (activityFilter === 'today' && now - last > day) return false
+      if (activityFilter === 'week' && now - last > 7*day) return false
+      if (activityFilter === 'month' && now - last > 30*day) return false
+      if (activityFilter === 'inactive' && now - last <= 30*day) return false
+    }
+    return true
+  })
 
+  // Sort
+  const sorted = [...filtered].sort((a, b) => {
+    switch (sortBy) {
+      case 'newest': return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      case 'oldest': return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      case 'active': {
+        const la = a.last_sign_in ? new Date(a.last_sign_in).getTime() : 0
+        const lb = b.last_sign_in ? new Date(b.last_sign_in).getTime() : 0
+        return lb - la
+      }
+      case 'projects': return (b.projects||0) - (a.projects||0)
+      case 'drafts': return (b.monthly_drafts||0) - (a.monthly_drafts||0)
+      default: return 0
+    }
+  })
+
+  // ── Stats ──
+  const now = Date.now()
+  const day = 86400000
   const stats = {
     total: users.length,
     free: users.filter(u=>!u.profile?.plan||u.profile.plan==='free').length,
     pro: users.filter(u=>u.profile?.plan==='pro').length,
     agency: users.filter(u=>u.profile?.plan==='agency').length,
     activeInvites: invites.filter(i=>!i.used_at && new Date(i.expires_at)>new Date()).length,
+    activeToday: users.filter(u => u.last_sign_in && now - new Date(u.last_sign_in).getTime() <= day).length,
+    activeWeek: users.filter(u => u.last_sign_in && now - new Date(u.last_sign_in).getTime() <= 7*day).length,
+    activeMonth: users.filter(u => u.last_sign_in && now - new Date(u.last_sign_in).getTime() <= 30*day).length,
+    inactive: users.filter(u => !u.last_sign_in || now - new Date(u.last_sign_in).getTime() > 30*day).length,
+    totalProjects: users.reduce((sum, u) => sum + (u.projects||0), 0),
+    totalMonthlyDrafts: users.reduce((sum, u) => sum + (u.monthly_drafts||0), 0),
   }
 
   if (loading) return <AppShell><div className="px-8 py-8 text-gray-500 text-sm">Ładowanie...</div></AppShell>
@@ -505,18 +783,35 @@ export default function AdminPage() {
           <button onClick={loadData} className="btn-secondary text-sm">↻ Odśwież</button>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-5 gap-3 mb-6">
+        {/* Stats - 2 rows */}
+        <div className="grid grid-cols-5 gap-3 mb-3">
           {[
-            {label:'Wszyscy',value:stats.total,color:'text-white'},
-            {label:'Free',value:stats.free,color:'text-gray-400'},
-            {label:'Pro',value:stats.pro,color:'text-indigo-400'},
-            {label:'Agency',value:stats.agency,color:'text-amber-400'},
-            {label:'Aktywne zaproszenia',value:stats.activeInvites,color:'text-emerald-400'},
+            {label:'Wszyscy',value:stats.total,color:'text-white',sub:`${stats.totalProjects} projektów`},
+            {label:'Free',value:stats.free,color:'text-gray-400',sub:`${Math.round(stats.free/Math.max(stats.total,1)*100)}%`},
+            {label:'Pro',value:stats.pro,color:'text-indigo-400',sub:`${Math.round(stats.pro/Math.max(stats.total,1)*100)}%`},
+            {label:'Agency',value:stats.agency,color:'text-amber-400',sub:`${Math.round(stats.agency/Math.max(stats.total,1)*100)}%`},
+            {label:'Aktywne zaproszenia',value:stats.activeInvites,color:'text-emerald-400',sub:'oczekują'},
           ].map(s=>(
             <div key={s.label} className="card p-4 text-center">
               <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
               <p className="text-[10px] text-gray-600 mt-1">{s.label}</p>
+              {s.sub && <p className="text-[9px] text-gray-700 mt-0.5">{s.sub}</p>}
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-5 gap-3 mb-6">
+          {[
+            {label:'Aktywni dziś',value:stats.activeToday,color:'text-emerald-300',sub:'<24h'},
+            {label:'Aktywni 7 dni',value:stats.activeWeek,color:'text-emerald-400',sub:'tydzień'},
+            {label:'Aktywni 30 dni',value:stats.activeMonth,color:'text-blue-400',sub:'miesiąc'},
+            {label:'Nieaktywni',value:stats.inactive,color:'text-gray-500',sub:'30+ dni'},
+            {label:'Posty (m-c)',value:stats.totalMonthlyDrafts,color:'text-purple-400',sub:'wszyscy łącznie'},
+          ].map(s=>(
+            <div key={s.label} className="card p-4 text-center">
+              <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+              <p className="text-[10px] text-gray-600 mt-1">{s.label}</p>
+              {s.sub && <p className="text-[9px] text-gray-700 mt-0.5">{s.sub}</p>}
             </div>
           ))}
         </div>
@@ -527,6 +822,7 @@ export default function AdminPage() {
           {[
             {id:'users',label:`👥 Użytkownicy (${users.length})`},
             {id:'invites',label:`✉️ Zaproszenia (${invites.length})`},
+            {id:'activity',label:`📊 Activity log`},
           ].map(t=>(
             <button key={t.id} onClick={()=>setActiveTab(t.id as typeof activeTab)}
               className="flex-1 py-2.5 rounded-lg text-sm font-medium transition-all"
@@ -539,15 +835,110 @@ export default function AdminPage() {
         {/* ── USERS ── */}
         {activeTab==='users' && (
           <div>
-            <input className="input mb-4" placeholder="Szukaj po emailu..."
-              value={search} onChange={e=>setSearch(e.target.value)}/>
+            {/* Search + Filters */}
+            <div className="flex gap-2 mb-3 flex-wrap">
+              <input className="input flex-1 min-w-[240px]" placeholder="🔍 Szukaj po emailu lub imieniu..."
+                value={search} onChange={e=>setSearch(e.target.value)}/>
+              <select className="input w-auto" value={planFilter} onChange={e=>setPlanFilter(e.target.value as typeof planFilter)}>
+                <option value="all">Wszystkie plany</option>
+                <option value="free">Free</option>
+                <option value="pro">Pro</option>
+                <option value="agency">Agency</option>
+              </select>
+              <select className="input w-auto" value={activityFilter} onChange={e=>setActivityFilter(e.target.value as typeof activityFilter)}>
+                <option value="all">Aktywność</option>
+                <option value="today">Aktywni dziś</option>
+                <option value="week">Ostatnie 7 dni</option>
+                <option value="month">Ostatnie 30 dni</option>
+                <option value="inactive">Nieaktywni 30+ dni</option>
+              </select>
+              <select className="input w-auto" value={sortBy} onChange={e=>setSortBy(e.target.value as typeof sortBy)}>
+                <option value="newest">Sortuj: Najnowsi</option>
+                <option value="oldest">Sortuj: Najstarsi</option>
+                <option value="active">Sortuj: Ostatnio aktywni</option>
+                <option value="projects">Sortuj: Liczba projektów</option>
+                <option value="drafts">Sortuj: Posty / mies.</option>
+              </select>
+            </div>
+
+            {/* Result count + clear filters */}
+            <div className="flex items-center justify-between mb-3 text-xs text-gray-500">
+              <span>Pokazano {sorted.length} z {users.length} {sorted.length===users.length?'':'(po filtrowaniu)'}</span>
+              {(search || planFilter!=='all' || activityFilter!=='all' || sortBy!=='newest') && (
+                <button onClick={()=>{setSearch('');setPlanFilter('all');setActivityFilter('all');setSortBy('newest')}}
+                  className="text-indigo-400 hover:text-indigo-300">✕ Wyczyść filtry</button>
+              )}
+            </div>
+
+            {/* Bulk actions bar */}
+            {selectedUsers.size > 0 && (
+              <div className="flex items-center gap-3 px-4 py-3 mb-3 rounded-xl"
+                style={{background:'rgba(99,102,241,0.15)',border:'1px solid rgba(99,102,241,0.3)'}}>
+                <span className="text-sm font-medium text-white">
+                  Zaznaczono <span className="text-indigo-300">{selectedUsers.size}</span> {selectedUsers.size===1?'użytkownika':'użytkowników'}
+                </span>
+                <select
+                  className="text-xs rounded-lg px-2 py-1.5"
+                  style={{background:'rgba(255,255,255,0.08)',color:'#e5e7eb',border:'1px solid rgba(255,255,255,0.15)'}}
+                  value={bulkAction} onChange={e=>setBulkAction(e.target.value)}>
+                  <option value="">— Wybierz akcję —</option>
+                  <option value="plan:free">Zmień plan na Free</option>
+                  <option value="plan:pro">Zmień plan na Pro</option>
+                  <option value="plan:agency">Zmień plan na Agency</option>
+                  <option value="preset:free">Zastosuj uprawnienia Free</option>
+                  <option value="preset:pro">Zastosuj uprawnienia Pro</option>
+                  <option value="preset:agency">Zastosuj uprawnienia Agency</option>
+                  <option value="delete">🗑 Usuń użytkowników</option>
+                </select>
+                <button
+                  onClick={runBulkAction}
+                  disabled={!bulkAction || bulkProcessing}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-30"
+                  style={{background:bulkAction==='delete'?'#ef4444':'#6366f1',color:'white'}}>
+                  {bulkProcessing ? 'Wykonuję...' : 'Wykonaj'}
+                </button>
+                <button onClick={()=>setSelectedUsers(new Set())}
+                  className="text-xs text-gray-400 hover:text-gray-300 ml-auto">Anuluj zaznaczenie</button>
+              </div>
+            )}
+
+            {/* Select all */}
+            {sorted.length > 0 && (
+              <div className="flex items-center gap-2 mb-2 px-2">
+                <input type="checkbox"
+                  checked={sorted.every(u => selectedUsers.has(u.id))}
+                  onChange={e => {
+                    if (e.target.checked) setSelectedUsers(new Set(sorted.map(u => u.id)))
+                    else setSelectedUsers(new Set())
+                  }}
+                  className="w-4 h-4 rounded accent-indigo-500"/>
+                <span className="text-xs text-gray-500">
+                  {sorted.every(u => selectedUsers.has(u.id)) ? 'Odznacz wszystkich' : 'Zaznacz wszystkich na liście'}
+                </span>
+              </div>
+            )}
+
             <div className="space-y-2">
-              {filtered.map(u => {
+              {sorted.map(u => {
                 const perms = u.permissions
                 const enabledModules = perms ? MODULE_LIST.filter(m=>perms[m.key as keyof Permissions]).length : null
+                const isSelected = selectedUsers.has(u.id)
                 return (
-                  <div key={u.id} className="card">
-                    <div className="flex items-center gap-4">
+                  <div key={u.id} className="card" style={isSelected ? {borderColor:'rgba(99,102,241,0.5)',background:'rgba(99,102,241,0.03)'} : undefined}>
+                    <div className="flex items-center gap-3">
+                      {/* Checkbox */}
+                      <input type="checkbox"
+                        checked={isSelected}
+                        onChange={() => {
+                          setSelectedUsers(prev => {
+                            const next = new Set(prev)
+                            if (next.has(u.id)) next.delete(u.id)
+                            else next.add(u.id)
+                            return next
+                          })
+                        }}
+                        className="w-4 h-4 rounded accent-indigo-500 shrink-0"/>
+
                       {/* Avatar */}
                       <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
                         style={{background:'linear-gradient(135deg,rgba(99,102,241,0.4),rgba(168,85,247,0.3))'}}>
@@ -814,6 +1205,71 @@ export default function AdminPage() {
                 )
               })}
             </div>
+          </div>
+        )}
+
+        {/* ── ACTIVITY LOG ── */}
+        {activeTab==='activity' && (
+          <div>
+            <div className="flex gap-2 mb-3 flex-wrap">
+              <input className="input flex-1 min-w-[240px]" placeholder="🔍 Filtruj po emailu użytkownika..."
+                value={activityFilterUser} onChange={e=>setActivityFilterUser(e.target.value)}/>
+              <select className="input w-auto" value={activityFilterAction} onChange={e=>setActivityFilterAction(e.target.value)}>
+                <option value="">Wszystkie akcje</option>
+                <option value="login">Logowania</option>
+                <option value="signup">Rejestracje</option>
+                <option value="generate">Generacje AI</option>
+                <option value="plan_change">Zmiany planu</option>
+                <option value="permissions_change">Zmiany uprawnień</option>
+                <option value="error">Błędy</option>
+                <option value="delete">Usunięcia</option>
+              </select>
+              <button onClick={loadActivityLog} className="btn-secondary text-xs">↻ Odśwież</button>
+            </div>
+
+            {activityLog.length === 0 ? (
+              <div className="card p-8 text-center text-gray-500 text-sm">
+                Brak zapisanych zdarzeń.
+                <p className="text-[11px] text-gray-600 mt-2">
+                  Wymaga utworzenia tabeli <code>activity_log</code> w Supabase. Zobacz docs/SQL_MIGRATION.md
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {activityLog
+                  .filter(e => !activityFilterUser || e.user_email?.toLowerCase().includes(activityFilterUser.toLowerCase()))
+                  .filter(e => !activityFilterAction || e.action.includes(activityFilterAction))
+                  .map(entry => {
+                    const ACTION_CFG: Record<string,{icon:string;color:string}> = {
+                      login: {icon:'🔓',color:'#34d399'},
+                      signup: {icon:'✦',color:'#a5b4fc'},
+                      generate: {icon:'⚡',color:'#fbbf24'},
+                      plan_change: {icon:'⬆️',color:'#a855f7'},
+                      permissions_change: {icon:'🔧',color:'#60a5fa'},
+                      error: {icon:'❌',color:'#f87171'},
+                      delete: {icon:'🗑',color:'#ef4444'},
+                    }
+                    const cfg = Object.entries(ACTION_CFG).find(([k]) => entry.action.includes(k))?.[1]
+                      || {icon:'·',color:'#6b7280'}
+                    return (
+                      <div key={entry.id} className="card flex items-center gap-3 py-2.5">
+                        <span className="text-base shrink-0" style={{color:cfg.color}}>{cfg.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm text-white truncate">{entry.user_email || entry.user_id}</span>
+                            <span className="text-xs px-1.5 py-0.5 rounded font-mono"
+                              style={{background:'rgba(255,255,255,0.04)',color:cfg.color}}>{entry.action}</span>
+                            {entry.details && <span className="text-xs text-gray-500 truncate">· {entry.details}</span>}
+                          </div>
+                        </div>
+                        <span className="text-[11px] text-gray-600 shrink-0">
+                          {new Date(entry.created_at).toLocaleString('pl', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}
+                        </span>
+                      </div>
+                    )
+                  })}
+              </div>
+            )}
           </div>
         )}
       </div>

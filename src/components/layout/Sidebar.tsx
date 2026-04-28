@@ -55,33 +55,33 @@ export default function Sidebar() {
       label: 'Główne',
       items: [
         { href: '/',           icon: '⊞', label: 'Pulpit' },
-        { href: '/strategia', icon: '🧭', label: 'Strategia', show: true },
-        { href: '/rtm',      icon: '⚡', label: 'RTM Generator', show: true },
-        { href: '/asystent', icon: '🤖', label: 'Asystent AI', show: true },
-        { href: '/brief',    icon: '📋', label: 'Briefy klientów', show: true },
-        { href: '/wlasny-brief', icon: '📂', label: 'Własny brief', show: true },
-        { href: '/grafika',  icon: '🖼️', label: 'Stwórz grafikę', show: true },
-        { href: '/prezentacja', icon: '🎤', label: 'Prezentacja', show: true },
-        perms.can_generate_posts && { href: '/generuj',    icon: '✦', label: 'Generuj posty' },
-        { href: '/biblioteka', icon: '📚', label: 'Biblioteka' },
-        { href: '/scheduler',  icon: '📅', label: 'Scheduler' },
-        { href: '/kalendarz',  icon: '⊟', label: 'Kalendarz' },
-        { href: '/analityka',  icon: '⊘', label: 'Analityka' },
-        perms.can_raport && { href: '/raport', icon: '📈', label: 'Raport' },
+        perms.can_strategia      && { href: '/strategia',    icon: '🧭', label: 'Strategia' },
+        perms.can_rtm            && { href: '/rtm',          icon: '⚡', label: 'RTM Generator' },
+        perms.can_asystent       && { href: '/asystent',     icon: '🤖', label: 'Asystent AI' },
+        perms.can_briefy         && { href: '/brief',        icon: '📋', label: 'Briefy klientów' },
+        perms.can_wlasny_brief   && { href: '/wlasny-brief', icon: '📂', label: 'Własny brief' },
+        perms.can_grafika        && { href: '/grafika',      icon: '🖼️', label: 'Stwórz grafikę' },
+        perms.can_prezentacja    && { href: '/prezentacja',  icon: '🎤', label: 'Prezentacja' },
+        perms.can_generate_posts && { href: '/generuj',      icon: '✦', label: 'Generuj posty' },
+        perms.can_biblioteka     && { href: '/biblioteka',   icon: '📚', label: 'Biblioteka' },
+        perms.can_scheduler      && { href: '/scheduler',    icon: '📅', label: 'Scheduler' },
+        perms.can_kalendarz      && { href: '/kalendarz',    icon: '⊟', label: 'Kalendarz' },
+        perms.can_analityka      && { href: '/analityka',    icon: '⊘', label: 'Analityka' },
+        perms.can_raport         && { href: '/raport',       icon: '📈', label: 'Raport' },
       ].filter(Boolean)
     },
     {
       label: 'Marka',
       items: [
-        { href: '/marka',     icon: '◈', label: 'Marka' },
-        { href: '/brand-dna', icon: '◉', label: 'Brand DNA' },
-        { href: '/platformy', icon: '⊹', label: 'Platformy' },
-        { href: '/materialy', icon: '⊡', label: 'Materiały' },
-        { href: '/stworzone', icon: '📦', label: 'Stworzone' },
-        { href: '/news',      icon: '📰', label: 'Newsy branżowe', badge: 'NEW' },
-        { href: '/projekty',  icon: '🗂', label: 'Projekty' },
-        { href: '/wiadomosci', icon: '📬', label: 'Wiadomości', badge: unreadCount > 0 ? String(unreadCount) : undefined, badgeColor: 'red' },
-      ]
+        perms.can_marka      && { href: '/marka',     icon: '◈', label: 'Marka' },
+        perms.can_brand_dna  && { href: '/brand-dna', icon: '◉', label: 'Brand DNA' },
+        perms.can_platformy  && { href: '/platformy', icon: '⊹', label: 'Platformy' },
+        perms.can_materialy  && { href: '/materialy', icon: '⊡', label: 'Materiały' },
+        perms.can_stworzone  && { href: '/stworzone', icon: '📦', label: 'Stworzone' },
+        perms.can_news       && { href: '/news',      icon: '📰', label: 'Newsy branżowe', badge: 'NEW' },
+        perms.can_projekty   && { href: '/projekty',  icon: '🗂', label: 'Projekty' },
+        perms.can_wiadomosci && { href: '/wiadomosci', icon: '📬', label: 'Wiadomości', badge: unreadCount > 0 ? String(unreadCount) : undefined, badgeColor: 'red' },
+      ].filter(Boolean)
     },
     {
       label: 'AI Tools',
@@ -101,14 +101,14 @@ export default function Sidebar() {
     {
       label: 'Specjaliści AI',
       items: [
-        { href: '/meta-ads',     icon: '📣', label: 'Meta Ads',         badge: 'NEW' },
-        { href: '/performance',  icon: '⚡', label: 'Brief performance',badge: 'NEW' },
-        { href: '/storyboard',   icon: '🎬', label: 'Storyboard reels', badge: 'NEW' },
-        { href: '/crisis',       icon: '🚨', label: 'Crisis Response',  badge: 'NEW' },
-        { href: '/tone-checker', icon: '🎯', label: 'Voice Checker',    badge: 'NEW' },
-        { href: '/newsletter',   icon: '📧', label: 'Newsletter',       badge: 'NEW' },
-        { href: '/caption-ab',   icon: '🧪', label: 'Caption A/B',      badge: 'NEW' },
-      ]
+        perms.can_meta_ads      && { href: '/meta-ads',     icon: '📣', label: 'Meta Ads',         badge: 'NEW' },
+        perms.can_performance   && { href: '/performance',  icon: '⚡', label: 'Brief performance',badge: 'NEW' },
+        perms.can_storyboard    && { href: '/storyboard',   icon: '🎬', label: 'Storyboard reels', badge: 'NEW' },
+        perms.can_crisis        && { href: '/crisis',       icon: '🚨', label: 'Crisis Response',  badge: 'NEW' },
+        perms.can_voice_checker && { href: '/tone-checker', icon: '🎯', label: 'Voice Checker',    badge: 'NEW' },
+        perms.can_newsletter    && { href: '/newsletter',   icon: '📧', label: 'Newsletter',       badge: 'NEW' },
+        perms.can_caption_ab    && { href: '/caption-ab',   icon: '🧪', label: 'Caption A/B',      badge: 'NEW' },
+      ].filter(Boolean)
     },
   ]
 
