@@ -8,7 +8,13 @@ import { SearchToggle, useModuleSearchPref } from '@/components/SearchToggle'
 // ─── Types ────────────────────────────────────────────────────
 interface SocialProfileInput { platform: string; url: string }
 interface SocialProfile {
-  platform: string; estimatedUrl: string; followers: string
+  platform: string;
+  // New: profileUrl + verified flag (post Tavily upgrade)
+  profileUrl?: string;
+  verified?: boolean;
+  // Legacy: estimatedUrl (kept for backward compatibility with old saved analyses)
+  estimatedUrl?: string;
+  followers: string
   postsPerWeek: number; avgEngagement: string; contentFocus: string
   lastActive: string; strength: string; weakness: string
 }
@@ -423,26 +429,46 @@ export default function KonkurencjaPage() {
                   <div className="card">
                     <div className="flex items-center justify-between mb-5">
                       <h3 className="text-sm font-semibold text-white">Profile social media konkurenta</h3>
-                      <span className="text-xs text-gray-600">⚠️ Dane szacunkowe — zweryfikuj ręcznie</span>
+                      <span className="text-xs text-gray-600">
+                        {displayData.socialProfiles.some(p => p.verified)
+                          ? '🔍 Profile odnalezione w internecie · liczby szacunkowe'
+                          : '⚠️ Wszystkie dane szacunkowe — zweryfikuj ręcznie'}
+                      </span>
                     </div>
                     <div className="grid grid-cols-3 gap-4">
                       {displayData.socialProfiles.map((profile, i) => {
                         const activityColor = profile.lastActive === 'aktywny' ? '#34d399' : profile.lastActive === 'sporadyczny' ? '#fbbf24' : '#6b7280'
                         const plt = PLT_MAP[profile.platform?.toLowerCase()]
-                        const realUrl = socialInputs.find(s => s.platform === profile.platform?.toLowerCase())?.url
+                        // URL priority: 1) user-supplied, 2) Tavily-found, 3) AI estimated guess
+                        const userProvidedUrl = socialInputs.find(s => s.platform === profile.platform?.toLowerCase())?.url
+                        const aiUrl = profile.profileUrl || profile.estimatedUrl || ''
+                        const finalUrl = userProvidedUrl || aiUrl
+                        // Verified = either user provided OR Tavily found (verified flag from backend)
+                        const isVerified = !!userProvidedUrl || profile.verified === true
+                        const verifiedSource = userProvidedUrl ? 'wpisany' : (profile.verified ? 'Tavily' : null)
                         return (
                           <div key={i} className="rounded-2xl p-4 space-y-3"
-                            style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.07)'}}>
+                            style={{
+                              background:'rgba(255,255,255,0.03)',
+                              border: isVerified ? '1px solid rgba(52,211,153,0.2)' : '1px solid rgba(255,255,255,0.07)',
+                            }}>
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 {plt && <PlatformIcon platform={plt} size={24}/>}
                                 <span className="text-sm font-semibold text-white capitalize">{profile.platform}</span>
                               </div>
                               <div className="flex items-center gap-1.5">
-                                {realUrl && (
+                                {isVerified ? (
                                   <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold"
-                                    style={{background:'rgba(52,211,153,0.15)',color:'#34d399',border:'1px solid rgba(52,211,153,0.25)'}}>
+                                    style={{background:'rgba(52,211,153,0.15)',color:'#34d399',border:'1px solid rgba(52,211,153,0.25)'}}
+                                    title={`Profil zweryfikowany (${verifiedSource})`}>
                                     ✓ zweryfikowany
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold"
+                                    style={{background:'rgba(251,191,36,0.1)',color:'#fbbf24',border:'1px solid rgba(251,191,36,0.2)'}}
+                                    title="Profil nie został odnaleziony — możliwe że marka nie ma konta na tej platformie">
+                                    ⚠ niepotwierdzony
                                   </span>
                                 )}
                                 <div className="w-1.5 h-1.5 rounded-full" style={{background:activityColor}}/>
@@ -476,13 +502,15 @@ export default function KonkurencjaPage() {
                                 <p className="text-[11px] text-gray-400">{profile.weakness}</p>
                               </div>
                             </div>
-                            <a href={realUrl || profile.estimatedUrl} target="_blank" rel="noopener noreferrer"
-                              className="flex items-center gap-1.5 text-[11px] transition-colors"
-                              style={{color: realUrl ? '#34d399' : '#818cf8'}}>
-                              <span>↗</span>
-                              <span className="truncate">{(realUrl || profile.estimatedUrl).replace('https://','')}</span>
-                              {!realUrl && <span className="text-gray-700">(szacunkowy)</span>}
-                            </a>
+                            {finalUrl && (
+                              <a href={finalUrl} target="_blank" rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 text-[11px] transition-colors hover:underline"
+                                style={{color: isVerified ? '#34d399' : '#fbbf24'}}>
+                                <span>↗</span>
+                                <span className="truncate">{finalUrl.replace(/^https?:\/\//,'')}</span>
+                                {!isVerified && <span className="text-gray-700 shrink-0">(zgadnięty)</span>}
+                              </a>
+                            )}
                           </div>
                         )
                       })}
