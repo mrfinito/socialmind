@@ -272,13 +272,13 @@ KRYTYCZNE ZASADY ANALIZY:
 
 Na podstawie powyzszych danych wygeneruj realistyczna analize. Wykorzystuj prawdziwe dane gdzie sie pojawiaja.
 
-Odpowiedz TYLKO czystym JSON:
+Odpowiedz TYLKO czystym JSON. WAZNE: wypelnij WSZYSTKIE pola w szablonie ponizej, nawet jesli niektorych nie jestes pewny - lepiej dac realistyczne oszacowanie niz pominac pole. Pole "swot" MUSI miec wszystkie 4 sekcje: strengths, weaknesses, opportunities, threats. Pole "recommendations" MUSI miec 4 elementy:
 
 {"socialProfiles":[${profilesJson}],"competitorProfile":{"estimatedNiche":"nisza i pozycjonowanie konkurenta w brancy ${ourIndustry}","estimatedTone":"ton komunikacji","estimatedStrengths":["sila 1","sila 2","sila 3"],"estimatedWeaknesses":["slabos 1","slabos 2"],"contentMix":{"educational":30,"promotional":40,"entertainment":20,"ugc":10},"overallSocialScore":62},"gaps":[{"gap":"Luka 1","description":"opis luki w strategii konkurenta","opportunity":"jak ${ourBrand} moze to wykorzystac"},{"gap":"Luka 2","description":"opis luki","opportunity":"jak wykorzystac"},{"gap":"Luka 3","description":"opis luki","opportunity":"jak wykorzystac"},{"gap":"Luka 4","description":"opis luki","opportunity":"jak wykorzystac"}],"differentiators":[{"area":"Obszar 1","theyDo":"co robi konkurent","weShouldDo":"co ${ourBrand} powinno robic inaczej"},{"area":"Obszar 2","theyDo":"co robi","weShouldDo":"co robic"},{"area":"Obszar 3","theyDo":"co robi","weShouldDo":"co robic"},{"area":"Obszar 4","theyDo":"co robi","weShouldDo":"co robic"}],"contentInsights":[{"insight":"Wniosek 1","action":"konkretna akcja"},{"insight":"Wniosek 2","action":"konkretna akcja"},{"insight":"Wniosek 3","action":"konkretna akcja"},{"insight":"Wniosek 4","action":"konkretna akcja"}],"recommendations":[{"priority":"wysoki","title":"Rekomendacja 1","description":"szczegoly","timeframe":"natychmiast"},{"priority":"sredni","title":"Rekomendacja 2","description":"szczegoly","timeframe":"1-2 tygodnie"},{"priority":"sredni","title":"Rekomendacja 3","description":"szczegoly","timeframe":"1-2 tygodnie"},{"priority":"niski","title":"Rekomendacja 4","description":"szczegoly","timeframe":"miesiac+"}],"swot":{"strengths":["nasza sila 1","nasza sila 2","nasza sila 3"],"weaknesses":["nasza slabos 1","nasza slabos 2"],"opportunities":["szansa 1","szansa 2"],"threats":["zagrozenie 1","zagrozenie 2"]},"summary":"Strategiczne podsumowanie analizy w 3-4 zdaniach konkretnie opisujace pozycje konkurenta i rekomendacje dla ${ourBrand}."}`
 
     const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 5000,
+      max_tokens: 6000,
       messages: [{ role: 'user', content: prompt }]
     })
 

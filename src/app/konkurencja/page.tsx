@@ -560,7 +560,7 @@ export default function KonkurencjaPage() {
                         )
                       })}
                     </div>
-                    {displayData.competitorProfile.overallSocialScore && (
+                    {displayData.competitorProfile?.overallSocialScore && (
                       <div className="mt-4 pt-4 border-t border-white/6 flex items-center gap-4">
                         <p className="text-xs text-gray-500">Ogólna ocena social media:</p>
                         <div className="flex items-center gap-2">
@@ -634,18 +634,24 @@ export default function KonkurencjaPage() {
 
                 {/* SWOT */}
                 <div className="grid grid-cols-2 gap-3">
-                  {SWOT_CONFIG.map(({key, label, color, bg, border}) => (
-                    <div key={key} className="rounded-2xl p-4" style={{background:bg,border:`1px solid ${border}`}}>
-                      <p className={`text-xs font-semibold ${color} uppercase tracking-wide mb-3`}>{label}</p>
-                      <ul className="space-y-1.5">
-                        {((displayData.swot as Record<string,string[]>)[key]||[]).map((item,i) => (
-                          <li key={i} className="text-xs text-gray-400 flex items-start gap-1.5">
-                            <span className={`${color} shrink-0 mt-0.5`}>·</span>{item}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
+                  {SWOT_CONFIG.map(({key, label, color, bg, border}) => {
+                    const swotData = (displayData.swot || {}) as Record<string, string[]>
+                    const items = swotData[key] || []
+                    return (
+                      <div key={key} className="rounded-2xl p-4" style={{background:bg,border:`1px solid ${border}`}}>
+                        <p className={`text-xs font-semibold ${color} uppercase tracking-wide mb-3`}>{label}</p>
+                        <ul className="space-y-1.5">
+                          {items.length > 0 ? items.map((item,i) => (
+                            <li key={i} className="text-xs text-gray-400 flex items-start gap-1.5">
+                              <span className={`${color} shrink-0 mt-0.5`}>·</span>{item}
+                            </li>
+                          )) : (
+                            <li className="text-xs text-gray-600 italic">Brak danych</li>
+                          )}
+                        </ul>
+                      </div>
+                    )
+                  })}
                 </div>
 
                 {/* Recommendations */}
