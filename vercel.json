@@ -19,6 +19,8 @@
     "src/app/api/generate-report/route.ts": { "maxDuration": 120 },
     "src/app/api/listening/route.ts": { "maxDuration": 120 },
     "src/app/api/competitor/route.ts": { "maxDuration": 120 },
+    "src/app/api/search/route.ts": { "maxDuration": 60 },
+    "src/app/api/news-search/route.ts": { "maxDuration": 60 },
     "src/app/api/analyze-brand/route.ts": { "maxDuration": 120 },
     "src/app/api/meta-ads/route.ts": { "maxDuration": 120 },
     "src/app/api/storyboard/route.ts": { "maxDuration": 120 },

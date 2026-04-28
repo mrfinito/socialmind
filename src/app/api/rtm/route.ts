@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { checkGenerationLimit } from '@/lib/checkLimits'
 import { repairAIJSON } from '@/lib/repairJSON'
 import { checkAnthropicKey } from '@/lib/aiGuards'
+import { tavilySearch, formatSearchForPrompt } from '@/lib/tavily'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -29,6 +30,31 @@ export async function POST(req: NextRequest) {
   const persona = String(dna?.persona || 'brak')
   const usp = String(dna?.usp || 'brak')
   const plt = Array.isArray(platforms) ? platforms.join(', ') : 'facebook, instagram'
+  const ctry = String(country || 'Polska')
+
+  // ─── NEW: Fetch fresh news from Tavily for richer RTM context ───
+  let freshNewsContext = ''
+  if (process.env.TAVILY_API_KEY) {
+    try {
+      const [news, trends] = await Promise.all([
+        tavilySearch(`najwazniejsze wydarzenia ${ctry} dzisiaj`, {
+          topic: 'news', maxResults: 5, days: 2,
+        }),
+        tavilySearch(`trendy social media ${ind} ${ctry}`, {
+          topic: 'general', maxResults: 4,
+        }),
+      ])
+      const allResults = [
+        ...(news?.results || []),
+        ...(trends?.results || []),
+      ]
+      if (allResults.length > 0) {
+        freshNewsContext = formatSearchForPrompt(allResults, { maxPerResult: 400, maxTotal: 3500 })
+      }
+    } catch (e) {
+      console.warn('RTM: Tavily fetch failed:', e instanceof Error ? e.message : e)
+    }
+  }
 
   const systemPrompt = `Jestes ekspertem Real Time Marketingu z 10-letnim doswiadczeniem w polskim rynku reklamowym. Znasz polska kulture, aktualne trendy, swieta i rocznice, dyskusje spoleczne.
 
@@ -63,16 +89,25 @@ Dluzsze teksty czesto zawieraja apostrofy/cudzyslowy ktore lamia JSON.`
   const prompt = `REAL TIME MARKETING - ${today}
 
 KONTEKST:
-- Kraj: ${country || 'Polska'}
+- Kraj: ${ctry}
 - Marka: ${brand}
 - Branza: ${ind}
 - USP: ${usp}
 - Ton komunikacji: ${tone}
 - Persona klienta: ${persona}
 - Platformy: ${plt}
+${freshNewsContext ? `
+═══ AKTUALNE WYDARZENIA Z INTERNETU (świeze dane z dzisiaj) ═══
+Wykorzystaj te informacje jako KRYTYCZNE zrodlo aktualnych okazji RTM.
+Te dane zawieraja prawdziwe wydarzenia ktorych Ty mogles nie znac.
+
+${freshNewsContext}
+
+═════════════════════════════════════════
+` : ''}
 
 ZADANIE:
-Na podstawie Twojej wiedzy o aktualnych wydarzeniach, trendach, swietach i rocznicach w Polsce na dzien ${today}, zidentyfikuj 3 najlepsze okazje RTM i wygeneruj gotowe profesjonalne posty dla marki ${brand}.
+Na podstawie ${freshNewsContext ? 'powyzszych aktualnych danych ORAZ ' : ''}Twojej wiedzy o wydarzeniach, trendach, swietach i rocznicach w ${ctry} na dzien ${today}, zidentyfikuj 3 najlepsze okazje RTM i wygeneruj gotowe profesjonalne posty dla marki ${brand}.
 
 Kazda okazja musi:
 - Naturalnie pasowac do marki i branzy ${ind}

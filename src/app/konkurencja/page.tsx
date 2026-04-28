@@ -78,6 +78,8 @@ export default function KonkurencjaPage() {
   // Results
   const [data, setData] = useState<CompData|null>(null)
   const [currentName, setCurrentName] = useState('')
+  const [searchUsed, setSearchUsed] = useState(false)
+  const [searchSources, setSearchSources] = useState<Array<{title:string;url:string}>>([])
 
   // Saved competitors
   const [saved, setSaved] = useState<SavedCompetitor[]>([])
@@ -116,6 +118,8 @@ export default function KonkurencjaPage() {
       const j = await res.json()
       if (!res.ok) throw new Error(j.error)
       setData(j.data)
+      setSearchUsed(!!j._searchUsed)
+      setSearchSources(j._sources || [])
 
       // Auto-save
       const newEntry: SavedCompetitor = {
@@ -327,8 +331,32 @@ export default function KonkurencjaPage() {
                 {/* Summary */}
                 <div className="rounded-2xl p-5 border border-indigo-500/20"
                   style={{background:'linear-gradient(135deg,rgba(99,102,241,0.1),rgba(168,85,247,0.05))'}}>
-                  <p className="text-xs font-semibold text-indigo-400 uppercase tracking-wide mb-2">Podsumowanie strategiczne</p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-semibold text-indigo-400 uppercase tracking-wide">Podsumowanie strategiczne</p>
+                    {searchUsed && (
+                      <span className="text-[10px] px-2 py-0.5 rounded font-medium"
+                        style={{background:'rgba(16,185,129,0.15)',color:'#34d399'}}>
+                        🌐 Wzbogacono o dane z internetu
+                      </span>
+                    )}
+                  </div>
                   <p className="text-gray-200 text-sm leading-relaxed">{displayData.summary}</p>
+
+                  {searchUsed && searchSources.length > 0 && (
+                    <details className="mt-3">
+                      <summary className="text-[11px] text-indigo-300 cursor-pointer hover:text-indigo-200">
+                        📚 Pokaż źródła ({searchSources.length})
+                      </summary>
+                      <div className="mt-2 space-y-1">
+                        {searchSources.map((s, i) => (
+                          <a key={i} href={s.url} target="_blank" rel="noopener noreferrer"
+                            className="block text-[11px] text-gray-400 hover:text-indigo-300 truncate">
+                            {i+1}. {s.title}
+                          </a>
+                        ))}
+                      </div>
+                    </details>
+                  )}
                 </div>
 
                 {/* Profile + Mix */}

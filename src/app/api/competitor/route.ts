@@ -3,10 +3,11 @@ import { checkGenerationLimit } from '@/lib/checkLimits'
 import Anthropic from '@anthropic-ai/sdk'
 import { robustParse } from '@/lib/parseJSON'
 import { checkAnthropicKey } from '@/lib/aiGuards'
+import { tavilySearch, formatSearchForPrompt } from '@/lib/tavily'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-export const maxDuration = 60
+export const maxDuration = 120
 
 
 export async function POST(req: NextRequest) {
@@ -32,6 +33,37 @@ export async function POST(req: NextRequest) {
     const ourIndustry = ourDNA?.industry || 'ogolna'
     const slug = name.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '')
 
+    // ─── NEW: Tavily search for real competitor data ───
+    let searchContext = ''
+    let searchSources: Array<{title: string; url: string}> = []
+    if (process.env.TAVILY_API_KEY && competitorName) {
+      try {
+        // Two parallel searches: general info + recent activity
+        const [general, recent] = await Promise.all([
+          tavilySearch(`${competitorName} firma branża ${ourIndustry}`, {
+            maxResults: 4,
+            searchDepth: 'basic',
+          }),
+          tavilySearch(`${competitorName} social media marketing strategia`, {
+            maxResults: 3,
+            searchDepth: 'basic',
+            topic: 'general',
+          }),
+        ])
+        const allResults = [
+          ...(general?.results || []),
+          ...(recent?.results || []),
+        ]
+        if (allResults.length > 0) {
+          searchContext = formatSearchForPrompt(allResults, { maxPerResult: 600, maxTotal: 4000 })
+          searchSources = allResults.slice(0, 6).map(r => ({ title: r.title, url: r.url }))
+        }
+      } catch (searchErr) {
+        // Search failure is not fatal - just continue without it
+        console.warn('Competitor: search failed:', searchErr instanceof Error ? searchErr.message : searchErr)
+      }
+    }
+
     const prompt = `Jestes ekspertem od analizy konkurencji i strategii social media.
 
 Przeanalizuj konkurenta dla marki ${ourBrand} (branza: ${ourIndustry}).
@@ -39,7 +71,14 @@ Konkurent: ${name}
 URL strony: ${competitorUrl || 'brak'}
 Platformy do analizy: ${(platforms || []).join(', ') || 'facebook, instagram, linkedin'}
 
-Na podstawie nazwy i URL wygeneruj realistyczna analize. Zgadnij profile social media na podstawie nazwy firmy.
+${searchContext ? `═══ DANE ZE WYSZUKIWARKI ═══
+Te informacje pochodza z aktualnych zrodel internetowych. Wykorzystaj je do REALNEJ analizy zamiast zgadywac.
+
+${searchContext}
+
+═══════════════════════════════` : 'Brak danych z wyszukiwarki - oprzyj analize na nazwie i ogolnych regulach branzowych.'}
+
+${searchContext ? 'Na podstawie powyzszych danych i swojej wiedzy' : 'Na podstawie nazwy i URL'} wygeneruj realistyczna analize. ${searchContext ? 'Wykorzystuj prawdziwe dane gdzie sie pojawiaja.' : 'Zgadnij profile social media na podstawie nazwy firmy.'}
 
 Odpowiedz TYLKO czystym JSON:
 
@@ -56,7 +95,12 @@ Odpowiedz TYLKO czystym JSON:
       .join('')
 
     const parsed = robustParse(rawText)
-    return NextResponse.json({ ok: true, data: parsed })
+    return NextResponse.json({
+      ok: true,
+      data: parsed,
+      _searchUsed: searchContext.length > 0,
+      _sources: searchSources,
+    })
 
   } catch (err) {
     console.error('Competitor error:', err)

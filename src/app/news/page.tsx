@@ -87,6 +87,8 @@ export default function NewsPage() {
   const [newSourceRss, setNewSourceRss] = useState('')
   const [lastFetch, setLastFetch] = useState<string>('')
   const [failedSources, setFailedSources] = useState<string[]>([])
+  const [googleSearching, setGoogleSearching] = useState(false)
+  const [googleSearchError, setGoogleSearchError] = useState('')
 
   // Load saved state
   useEffect(() => {
@@ -137,6 +139,38 @@ export default function NewsPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  async function searchGoogleNews() {
+    if (search.trim().length < 2) return
+    setGoogleSearching(true)
+    setGoogleSearchError('')
+    try {
+      const res = await fetch('/api/news-search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: search.trim(), days: 7, maxResults: 15 }),
+      })
+      const j = await res.json()
+      if (!j.ok) {
+        setGoogleSearchError(j.error || 'Wyszukiwanie nie powiodło się')
+        return
+      }
+      // Merge Google results with existing items, deduped by URL
+      const existing = new Set(items.map(i => i.link))
+      const newOnes = (j.items || []).filter((it: NewsItem) => !existing.has(it.link))
+      if (newOnes.length === 0) {
+        setGoogleSearchError(`Nie znaleziono nowych artykułów dla "${search}". Spróbuj innej frazy.`)
+        return
+      }
+      // Prepend new results so they appear at the top
+      setItems(prev => [...newOnes, ...prev])
+      setLastFetch(new Date().toISOString())
+    } catch (e) {
+      setGoogleSearchError(e instanceof Error ? e.message : 'Błąd wyszukiwania')
+    } finally {
+      setGoogleSearching(false)
+    }
+  }
 
   async function generateInsight(article: NewsItem) {
     if (insights[article.id]) return // already have it
@@ -291,11 +325,26 @@ export default function NewsPage() {
               </div>
             )}
 
-            <div className="mb-4">
-              <input className="input"
-                placeholder="🔍 Szukaj w artykułach..."
-                value={search} onChange={e => setSearch(e.target.value)} />
+            <div className="mb-4 flex gap-2">
+              <input className="input flex-1"
+                placeholder="🔍 Szukaj w artykułach lub w Google News..."
+                value={search} onChange={e => setSearch(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && search.trim().length >= 2) searchGoogleNews() }} />
+              <button
+                onClick={searchGoogleNews}
+                disabled={search.trim().length < 2 || googleSearching}
+                title="Szukaj w Google News (świeże wyniki z internetu, ostatnie 7 dni)"
+                className="px-4 py-2 rounded-xl text-sm font-medium disabled:opacity-30 whitespace-nowrap"
+                style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)' }}>
+                {googleSearching ? '⏳ Szukam...' : '🌐 Google News'}
+              </button>
             </div>
+            {googleSearchError && (
+              <div className="mb-4 px-3 py-2 rounded-lg text-xs"
+                style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)', color:'#fca5a5' }}>
+                ⚠ {googleSearchError}
+              </div>
+            )}
 
             {lastFetch && (
               <p className="text-[11px] text-gray-600 mb-4">Ostatnio pobrane: {new Date(lastFetch).toLocaleString('pl')} · {filteredItems.length} z {items.length} artykułów</p>
