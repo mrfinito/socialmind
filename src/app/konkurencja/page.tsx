@@ -572,6 +572,21 @@ export default function KonkurencjaPage() {
                         </div>
                       </div>
                     )}
+
+                    {/* Helpful banner if some profiles weren't found */}
+                    {displayData.socialProfiles.some(p => p.verified === false && !p.profileUrl) && (
+                      <div className="mt-4 pt-4 border-t border-white/6">
+                        <div className="rounded-xl px-4 py-3"
+                          style={{background:'rgba(251,191,36,0.06)',border:'1px solid rgba(251,191,36,0.2)'}}>
+                          <p className="text-xs text-amber-400/90 leading-relaxed mb-2">
+                            <strong>Uwaga:</strong> Niektóre profile nie zostały znalezione przez wyszukiwarkę. To <strong>nie znaczy że marka tam nie ma konta</strong> — często wynika z tego że Tavily nie zaindeksował profilu lub używa on innej nazwy w URL.
+                          </p>
+                          <p className="text-[11px] text-gray-400 leading-relaxed">
+                            Jeśli znasz prawdziwe URL-e tych profili, wpisz je w polach &quot;Linki do social media&quot; przy konkurencie i odpalcie analizę ponownie — dane będą wtedy dokładniejsze.
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

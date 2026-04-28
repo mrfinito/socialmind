@@ -102,19 +102,36 @@ export async function POST(req: NextRequest) {
     let searchSources: Array<{title: string; url: string}> = []
     if (useSearch !== false && process.env.TAVILY_API_KEY && competitorName) {
       try {
-        // Build per-platform search queries with brand name in QUOTES + 'oficjalna strona'
-        // for stricter matching
+        // Build per-platform search queries — try TWO queries per platform for better recall
+        // because Tavily's includeDomains filter sometimes misses the obvious profile
         const profileSearches = platformsToCheck.map(platform => {
           const domains = PLATFORM_DOMAINS[platform.toLowerCase()] || []
           if (domains.length === 0) return null
-          // Query that emphasizes exact brand match — Tavily handles quotes well
-          const query = `${competitorName} ${platform} oficjalna strona profil`
-          return tavilySearch(query, {
-            maxResults: 4, // get a few to pick from after filtering
-            searchDepth: 'basic',
-            includeDomains: domains,
-          }).then(result => ({ platform, result }))
-        }).filter(Boolean) as Array<Promise<{ platform: string; result: Awaited<ReturnType<typeof tavilySearch>> }>>
+          // Two parallel queries with different phrasings (Tavily can return different results)
+          const queries = [
+            `${competitorName}`,                  // simplest - just the name
+            `${competitorName} ${platform}`,       // name + platform name (English)
+          ]
+          return Promise.all(
+            queries.map(q => tavilySearch(q, {
+              maxResults: 5,
+              searchDepth: 'basic',
+              includeDomains: domains,
+            }))
+          ).then(results => ({
+            platform,
+            // Merge all results, dedupe by URL
+            result: {
+              results: Array.from(
+                new Map(
+                  results
+                    .flatMap(r => r?.results || [])
+                    .map(r => [r.url, r])
+                ).values()
+              )
+            }
+          }))
+        }).filter(Boolean) as Array<Promise<{ platform: string; result: { results: Array<{ url: string; title: string; content: string; score: number }> } }>>
 
         // General company info (separate query, no domain restriction)
         const generalSearch = tavilySearch(`${competitorName} firma branża ${ourIndustry}`, {
@@ -124,8 +141,8 @@ export async function POST(req: NextRequest) {
 
         const [generalRes, ...profileRes] = await Promise.all([generalSearch, ...profileSearches])
 
-        // Score threshold: Tavily returns relevance 0-1, only accept >=0.4
-        const SCORE_THRESHOLD = 0.4
+        // Score threshold: Tavily returns relevance 0-1, only accept >=0.3 (relaxed)
+        const SCORE_THRESHOLD = 0.3
 
         for (const item of profileRes) {
           const { platform, result } = item
@@ -224,10 +241,34 @@ ${searchContext}
 ═══════════════════════════════` : 'Brak danych z wyszukiwarki - oprzyj analize na nazwie i ogolnych regulach branzowych.'}
 ${realProfilesSummary}${notFoundSummary}
 
-WAZNE - profile spolecznosciowe:
-- W szablonie JSON niektore profile maja "profileUrl":"<URL>" i "verified":true - to PRAWDZIWE profile znalezione w internecie. Mozesz wypelnic ich liczby (followers, postsPerWeek, avgEngagement) na podstawie wyszukiwania lub szacowac realistycznie. NIE zmieniaj profileUrl.
-- Inne maja "profileUrl":null i "verified":false - to platformy GDZIE NIE ZNALEZIONO profilu marki. NIE wymyslaj URL-ow ani liczb. Zostaw je jak sa - z "nieznane" w polach.
-- W ogolnej ocenie (overallSocialScore) ZIGNORUJ platformy gdzie nie znaleziono profilu - oceniaj tylko te zweryfikowane.
+KRYTYCZNE ZASADY ANALIZY:
+
+1. PROFILE OZNACZONE "verified":true (z URL):
+   - To PRAWDZIWE profile znalezione w internecie
+   - Mozesz wypelnic followers/engagement na podstawie wyszukiwania
+   - NIE zmieniaj profileUrl
+
+2. PROFILE OZNACZONE "verified":false ("profileUrl":null):
+   - Tavily NIE ZNALAZL profilu na tej platformie
+   - To NIE OZNACZA ze marka tam nie ma konta - oznacza tylko ze wyszukiwarka nie zwrocila wyniku
+   - Mozliwe powody: marka uzywa innej nazwy w URL, profil jest prywatny, slaby SEO platformy, problem z wyszukiwarka
+   - NIE wymyslaj URL-ow ani liczb dla tych profili
+   - Zostaw pola "nieznane" zgodnie z szablonem
+
+3. ZAKAZANE WNIOSKI:
+   - Zakazane jest: "Marka nie jest aktywna na Facebooku/Instagramie/X" tylko dlatego ze nie znaleziono profilu
+   - Zakazane jest: obnizanie overallSocialScore z powodu nieznalezionych profili
+   - Zakazane jest: wpisywanie w SWOT/weaknesses "brak obecnosci na X" gdy chodzi o nieznaleziony profil
+   - JESLI nie znaleziono profilu, w polu summary napisz: "Profile na [platforma X, Y] nie zostaly odnalezione w wyszukiwarce - wymaga recznej weryfikacji."
+
+4. OCENA overallSocialScore:
+   - Liczba 0-100, oparta TYLKO na zweryfikowanych profilach
+   - Jesli zweryfikowano tylko 1 profil, ocen wylacznie ten profil (nie obnizaj za "brak innych")
+   - Jesli 0 zweryfikowanych - wpisz null lub 50 (neutralne)
+
+5. SWOT i recommendations:
+   - Buduj WYLACZNIE na podstawie zweryfikowanych profili i danych ogolnych z wyszukiwarki
+   - NIE oceniaj nieobecnosci na platformach gdzie profile nie zostaly znalezione
 
 Na podstawie powyzszych danych wygeneruj realistyczna analize. Wykorzystuj prawdziwe dane gdzie sie pojawiaja.
 
