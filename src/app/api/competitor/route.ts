@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkGenerationLimit } from '@/lib/checkLimits'
 import Anthropic from '@anthropic-ai/sdk'
-import { robustParse } from '@/lib/parseJSON'
+import { repairAIJSON } from '@/lib/repairJSON'
 import { checkAnthropicKey } from '@/lib/aiGuards'
 import { tavilySearch, formatSearchForPrompt } from '@/lib/tavily'
 
@@ -86,7 +86,7 @@ Odpowiedz TYLKO czystym JSON:
 
     const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 3000,
+      max_tokens: 5000,
       messages: [{ role: 'user', content: prompt }]
     })
 
@@ -94,7 +94,20 @@ Odpowiedz TYLKO czystym JSON:
       .map((b: { type: string; text?: string }) => b.type === 'text' ? b.text : '')
       .join('')
 
-    const parsed = robustParse(rawText)
+    const { parsed, strategy } = repairAIJSON(rawText)
+
+    if (!parsed) {
+      console.error('Competitor: parse failed. Raw length:', rawText.length)
+      console.error('Competitor: last 500 chars:', rawText.slice(-500))
+      console.error('Competitor: stop_reason:', response.stop_reason)
+      return NextResponse.json({
+        error: response.stop_reason === 'max_tokens'
+          ? 'AI zwróciło zbyt długą odpowiedź — spróbuj ponownie. Jeśli problem się powtórzy, wyłącz wyszukiwarkę dla tej analizy.'
+          : 'Nie można przetworzyć odpowiedzi AI. Spróbuj ponownie lub użyj innej nazwy konkurenta.',
+      }, { status: 500 })
+    }
+
+    console.log('Competitor: parsed via', strategy, '(stop_reason:', response.stop_reason, ')')
     return NextResponse.json({
       ok: true,
       data: parsed,
